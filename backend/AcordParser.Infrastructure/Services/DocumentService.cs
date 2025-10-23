@@ -197,9 +197,8 @@ public class DocumentService : IDocumentService
             document.Status = DocumentStatus.Processing;
             await _context.SaveChangesAsync();
 
-            // Download document from blob storage
-            Stream documentStream;
-            using (documentStream = await _blobStorage.DownloadFileAsync(document.BlobStorageUrl))
+            // Download document from blob storage and analyze with Azure Document Intelligence
+            await using (var documentStream = await _blobStorage.DownloadFileAsync(document.BlobStorageUrl))
             {
                 // Analyze with Azure Document Intelligence
                 var extractedData = await _documentIntelligence.AnalyzeAcord125Async(documentStream, document.FileName);
