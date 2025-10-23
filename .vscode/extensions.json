@@ -1,0 +1,60 @@
+{
+  "recommendations": [
+    // ==================== C# / .NET ====================
+    "ms-dotnettools.csharp",
+    "ms-dotnettools.csdevkit",
+    "ms-dotnettools.vscode-dotnet-runtime",
+
+    // ==================== ANGULAR / TYPESCRIPT ====================
+    "angular.ng-template",
+    "johnpapa.angular2",
+    "nrwl.angular-console",
+
+    // ==================== GENERAL WEB DEVELOPMENT ====================
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "formulahendry.auto-rename-tag",
+    "zignd.html-css-class-completion",
+
+    // ==================== DATABASE ====================
+    "ms-mssql.mssql",
+    "ms-mssql.data-workspace-vscode",
+
+    // ==================== DOCKER ====================
+    "ms-azuretools.vscode-docker",
+
+    // ==================== GIT ====================
+    "eamodio.gitlens",
+    "github.vscode-pull-request-github",
+    "donjayamanne.githistory",
+
+    // ==================== AZURE ====================
+    "ms-azuretools.vscode-azurefunctions",
+    "ms-azuretools.vscode-azureappservice",
+    "ms-azuretools.vscode-azurestorage",
+
+    // ==================== UTILITIES ====================
+    "streetsidesoftware.code-spell-checker",
+    "wayou.vscode-todo-highlight",
+    "gruntfuggly.todo-tree",
+    "christian-kohler.path-intellisense",
+    "visualstudioexptteam.vscodeintellicode",
+
+    // ==================== MARKDOWN ====================
+    "yzhang.markdown-all-in-one",
+    "davidanson.vscode-markdownlint",
+
+    // ==================== JSON / YAML ====================
+    "redhat.vscode-yaml",
+
+    // ==================== REST CLIENT ====================
+    "humao.rest-client",
+
+    // ==================== THEME (OPTIONAL) ====================
+    "pkief.material-icon-theme",
+    "github.github-vscode-theme"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript-tslint-plugin"
+  ]
+}
