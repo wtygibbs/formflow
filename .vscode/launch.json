@@ -1,0 +1,136 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    // ==================== .NET CONFIGURATIONS ====================
+    {
+      "name": "🚀 Launch Backend API",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Build Backend",
+      "program": "${workspaceFolder}/backend/AcordParser.API/bin/Debug/net9.0/AcordParser.API.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/backend/AcordParser.API",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/swagger"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:5001;http://localhost:5000"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "🐞 Attach to Backend Process",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickProcess}"
+    },
+    {
+      "name": "🔍 Launch Backend (No Build)",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/AcordParser.API/bin/Debug/net9.0/AcordParser.API.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/backend/AcordParser.API",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+
+    // ==================== CHROME/EDGE CONFIGURATIONS ====================
+    {
+      "name": "🌐 Launch Frontend (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "preLaunchTask": "Run Frontend",
+      "url": "http://localhost:4200",
+      "webRoot": "${workspaceFolder}/frontend",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack:/*": "${workspaceFolder}/frontend/*",
+        "/./*": "${workspaceFolder}/frontend/*",
+        "/src/*": "${workspaceFolder}/frontend/src/*",
+        "/*": "*",
+        "/./~/*": "${workspaceFolder}/frontend/node_modules/*"
+      },
+      "runtimeArgs": [
+        "--disable-web-security",
+        "--user-data-dir=${workspaceFolder}/.vscode/chrome-debug-profile"
+      ]
+    },
+    {
+      "name": "🌐 Launch Frontend (Edge)",
+      "type": "msedge",
+      "request": "launch",
+      "preLaunchTask": "Run Frontend",
+      "url": "http://localhost:4200",
+      "webRoot": "${workspaceFolder}/frontend",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack:/*": "${workspaceFolder}/frontend/*",
+        "/./*": "${workspaceFolder}/frontend/*",
+        "/src/*": "${workspaceFolder}/frontend/src/*",
+        "/*": "*",
+        "/./~/*": "${workspaceFolder}/frontend/node_modules/*"
+      }
+    },
+    {
+      "name": "🔗 Attach to Frontend (Chrome)",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}/frontend",
+      "sourceMaps": true
+    },
+
+    // ==================== DOCKER CONFIGURATIONS ====================
+    {
+      "name": "🐳 Docker: Launch Backend",
+      "type": "docker",
+      "request": "launch",
+      "preLaunchTask": "🐳 Docker: Compose Build",
+      "platform": "netCore",
+      "netCore": {
+        "appProject": "${workspaceFolder}/backend/AcordParser.API/AcordParser.API.csproj"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "🎯 Full Stack (Backend + Frontend)",
+      "configurations": [
+        "🚀 Launch Backend API",
+        "🌐 Launch Frontend (Chrome)"
+      ],
+      "stopAll": true,
+      "presentation": {
+        "hidden": false,
+        "group": "Full Stack",
+        "order": 1
+      }
+    },
+    {
+      "name": "🎯 Full Stack (Edge)",
+      "configurations": [
+        "🚀 Launch Backend API",
+        "🌐 Launch Frontend (Edge)"
+      ],
+      "stopAll": true,
+      "presentation": {
+        "hidden": false,
+        "group": "Full Stack",
+        "order": 2
+      }
+    }
+  ]
+}

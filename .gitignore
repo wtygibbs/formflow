@@ -31,7 +31,8 @@ out-tsc/
 
 # IDEs
 .vs/
-.vscode/
+# .vscode/ - Keep workspace configuration (tasks, launch, settings)
+.vscode/chrome-debug-profile/
 .idea/
 *.swp
 *.swo

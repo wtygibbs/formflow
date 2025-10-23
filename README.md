@@ -68,6 +68,35 @@ formflow/
 
 ## Getting Started
 
+### Quick Start with VS Code (Recommended)
+
+If you're using Visual Studio Code, the workspace includes pre-configured tasks and launch configurations:
+
+1. **Clone and open the repository**:
+   ```bash
+   git clone https://github.com/yourusername/formflow.git
+   cd formflow
+   code .
+   ```
+
+2. **Install recommended extensions** when prompted
+
+3. **Restore dependencies**:
+   - Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
+   - Type "Tasks: Run Task"
+   - Select "📦 Restore All"
+
+4. **Setup database**:
+   - Run Task: "📊 EF: Update Database"
+
+5. **Run the application**:
+   - Press `F5` to start debugging both backend and frontend
+   - Or press `Ctrl+Shift+B` and select "🚀 Run Full Stack"
+
+See [.vscode/README.md](.vscode/README.md) for complete VS Code setup guide and available tasks.
+
+### Manual Setup
+
 ### 1. Clone the Repository
 
 ```bash
