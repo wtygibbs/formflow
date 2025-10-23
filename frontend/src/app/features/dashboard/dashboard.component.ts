@@ -1,8 +1,8 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DocumentService, DocumentListItem } from '../../core/services/document.service';
-import { SubscriptionService, SubscriptionResponse } from '../../core/services/subscription.service';
+import { DocumentListItem, DocumentService } from '../../core/services/document.service';
+import { SubscriptionResponse, SubscriptionService } from '../../core/services/subscription.service';
 
 @Component({
   selector: 'app-dashboard',
