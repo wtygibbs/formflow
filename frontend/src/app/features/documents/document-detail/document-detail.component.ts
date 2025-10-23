@@ -9,392 +9,180 @@ import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/s
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <div class="document-detail">
+    <div class="space-y-6">
       @if (loading()) {
-        <p>Loading document...</p>
+        <div class="flex justify-center p-16">
+          <span class="loading loading-spinner loading-lg text-primary"></span>
+        </div>
       } @else if (document(); as doc) {
-        <div class="header">
-          <div>
-            <a routerLink="/documents" class="back-link">← Back to Documents</a>
-            <h1>{{ doc.fileName }}</h1>
-            <div class="document-meta">
-              <span class="meta-item">
-                Status: <span [class]="'status-' + doc.status">{{ getStatusText(doc.status) }}</span>
-              </span>
-              <span class="meta-item">Uploaded: {{ formatDate(doc.uploadedAt) }}</span>
-              @if (doc.processedAt) {
-                <span class="meta-item">Processed: {{ formatDate(doc.processedAt) }}</span>
-              }
-            </div>
-          </div>
-          <button (click)="exportCsv()" class="btn btn-primary" [disabled]="doc.status !== 2">
-            Export CSV
-          </button>
+        <!-- Header -->
+        <div>
+          <a routerLink="/documents" class="link link-primary font-semibold mb-4 inline-flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+            </svg>
+            Back to Documents
+          </a>
         </div>
 
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <div class="flex justify-between items-start gap-4">
+              <div class="flex-1">
+                <h1 class="text-3xl font-bold text-base-content mb-4">{{ doc.fileName }}</h1>
+                <div class="flex flex-wrap gap-4 text-sm">
+                  <div class="flex items-center gap-2">
+                    <span class="font-semibold">Status:</span>
+                    @switch (doc.status) {
+                      @case (0) {
+                        <div class="badge badge-neutral">Uploaded</div>
+                      }
+                      @case (1) {
+                        <div class="badge badge-warning">Processing</div>
+                      }
+                      @case (2) {
+                        <div class="badge badge-success">Completed</div>
+                      }
+                      @case (3) {
+                        <div class="badge badge-error">Failed</div>
+                      }
+                    }
+                  </div>
+                  <span class="text-base-content/60">Uploaded: {{ formatDate(doc.uploadedAt) }}</span>
+                  @if (doc.processedAt) {
+                    <span class="text-base-content/60">Processed: {{ formatDate(doc.processedAt) }}</span>
+                  }
+                </div>
+              </div>
+              <button (click)="exportCsv()" class="btn btn-primary gap-2" [disabled]="doc.status !== 2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alerts -->
         @if (doc.processingError) {
           <div class="alert alert-error">
-            <strong>Processing Error:</strong> {{ doc.processingError }}
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <strong>Processing Error:</strong> {{ doc.processingError }}
+            </div>
           </div>
         }
 
         @if (doc.status === 1) {
           <div class="alert alert-info">
-            Document is currently being processed. This may take a few minutes...
+            <span class="loading loading-spinner"></span>
+            <span>Document is currently being processed. This may take a few minutes...</span>
           </div>
         }
 
+        <!-- Extracted Fields -->
         @if (doc.extractedFields.length === 0) {
-          <div class="empty-state">
-            <p>No fields extracted yet.</p>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body items-center text-center py-12">
+              <div class="text-6xl mb-4">📄</div>
+              <p class="text-base-content/60">No fields extracted yet.</p>
+            </div>
           </div>
         } @else {
-          <div class="fields-container">
-            <div class="fields-header">
-              <h2>Extracted Fields ({{ doc.extractedFields.length }})</h2>
-              <div class="legend">
-                <span class="legend-item">
-                  <span class="confidence-indicator high"></span> High Confidence (>80%)
-                </span>
-                <span class="legend-item">
-                  <span class="confidence-indicator medium"></span> Medium Confidence (60-80%)
-                </span>
-                <span class="legend-item">
-                  <span class="confidence-indicator low"></span> Low Confidence (<60%)
-                </span>
-              </div>
-            </div>
-
-            <div class="fields-list">
-              @for (field of doc.extractedFields; track field.id) {
-                <div class="field-item" [class.verified]="field.isVerified">
-                  <div class="field-header">
-                    <h3>{{ field.fieldName }}</h3>
-                    <div class="field-actions">
-                      <span class="confidence-badge" [class]="getConfidenceClass(field.confidence)">
-                        {{ (field.confidence * 100).toFixed(0) }}% confidence
-                      </span>
-                      @if (field.isVerified) {
-                        <span class="verified-badge">✓ Verified</span>
-                      }
-                    </div>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
+                <h2 class="card-title text-2xl">Extracted Fields ({{ doc.extractedFields.length }})</h2>
+                <div class="flex flex-wrap gap-4 text-sm">
+                  <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-success"></div>
+                    <span>High (>80%)</span>
                   </div>
-                  <div class="field-content">
+                  <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-warning"></div>
+                    <span>Medium (60-80%)</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-error"></div>
+                    <span>Low (<60%)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                @for (field of doc.extractedFields; track field.id) {
+                  <div class="border rounded-lg p-4 hover:border-primary transition-colors"
+                       [class.bg-success/5]="field.isVerified"
+                       [class.border-success]="field.isVerified">
+                    <div class="flex justify-between items-start mb-3 gap-4">
+                      <h3 class="font-semibold text-lg">{{ field.fieldName }}</h3>
+                      <div class="flex gap-2 items-center flex-wrap justify-end">
+                        @switch (getConfidenceClass(field.confidence)) {
+                          @case ('high') {
+                            <div class="badge badge-success">{{ (field.confidence * 100).toFixed(0) }}%</div>
+                          }
+                          @case ('medium') {
+                            <div class="badge badge-warning">{{ (field.confidence * 100).toFixed(0) }}%</div>
+                          }
+                          @case ('low') {
+                            <div class="badge badge-error">{{ (field.confidence * 100).toFixed(0) }}%</div>
+                          }
+                        }
+                        @if (field.isVerified) {
+                          <div class="badge badge-success gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Verified
+                          </div>
+                        }
+                      </div>
+                    </div>
+
                     @if (editingField() === field.id) {
-                      <div class="edit-mode">
+                      <div class="space-y-3">
                         <input
                           type="text"
                           [(ngModel)]="editValue"
-                          class="form-control"
+                          class="input input-bordered w-full"
                           placeholder="Enter corrected value"
                         />
-                        <div class="edit-actions">
-                          <button (click)="saveField(field)" class="btn btn-sm btn-primary">Save</button>
-                          <button (click)="cancelEdit()" class="btn btn-sm btn-outline">Cancel</button>
+                        <div class="flex gap-2">
+                          <button (click)="saveField(field)" class="btn btn-primary btn-sm">Save</button>
+                          <button (click)="cancelEdit()" class="btn btn-outline btn-sm">Cancel</button>
                         </div>
                       </div>
                     } @else {
-                      <div class="view-mode">
-                        <p class="field-value">
-                          {{ field.editedValue || field.fieldValue }}
-                          @if (field.editedValue) {
-                            <span class="edited-badge">(Edited)</span>
-                          }
-                        </p>
-                        <div class="field-actions-buttons">
-                          <button (click)="startEdit(field)" class="btn btn-sm btn-outline">Edit</button>
+                      <div class="flex justify-between items-center gap-4">
+                        <div class="flex-1">
+                          <div class="bg-base-200 rounded p-3">
+                            <span class="font-mono">{{ field.editedValue || field.fieldValue }}</span>
+                            @if (field.editedValue) {
+                              <span class="badge badge-info badge-sm ml-2">Edited</span>
+                            }
+                          </div>
+                        </div>
+                        <div class="flex gap-2 flex-shrink-0">
+                          <button (click)="startEdit(field)" class="btn btn-outline btn-sm">Edit</button>
                           @if (!field.isVerified) {
-                            <button (click)="verifyField(field)" class="btn btn-sm btn-primary">Mark as Verified</button>
+                            <button (click)="verifyField(field)" class="btn btn-primary btn-sm">Verify</button>
                           }
                         </div>
                       </div>
                     }
                   </div>
-                </div>
-              }
+                }
+              </div>
             </div>
           </div>
         }
       }
     </div>
   `,
-  styles: [`
-    .document-detail {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .back-link {
-      color: #667eea;
-      text-decoration: none;
-      font-weight: 600;
-      display: inline-block;
-      margin-bottom: 1rem;
-    }
-
-    .back-link:hover {
-      text-decoration: underline;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 2rem;
-      gap: 2rem;
-    }
-
-    h1 {
-      margin: 0 0 1rem 0;
-      color: #333;
-    }
-
-    .document-meta {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-    }
-
-    .meta-item {
-      color: #6c757d;
-      font-size: 0.875rem;
-    }
-
-    .status-0 { color: #6c757d; }
-    .status-1 { color: #ffc107; }
-    .status-2 { color: #28a745; }
-    .status-3 { color: #dc3545; }
-
-    .btn {
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      font-weight: 600;
-      transition: all 0.3s;
-      border: 2px solid transparent;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-outline {
-      background: white;
-      color: #667eea;
-      border-color: #667eea;
-    }
-
-    .btn-outline:hover {
-      background: #667eea;
-      color: white;
-    }
-
-    .btn-sm {
-      padding: 0.5rem 1rem;
-      font-size: 0.875rem;
-    }
-
-    .alert {
-      padding: 1rem;
-      border-radius: 6px;
-      margin-bottom: 1.5rem;
-    }
-
-    .alert-info {
-      background: #e7f3ff;
-      color: #0066cc;
-      border: 1px solid #b3d9ff;
-    }
-
-    .alert-error {
-      background: #fee;
-      color: #c33;
-      border: 1px solid #fcc;
-    }
-
-    .fields-container {
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    .fields-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .fields-header h2 {
-      margin: 0;
-      color: #333;
-    }
-
-    .legend {
-      display: flex;
-      gap: 1.5rem;
-      font-size: 0.875rem;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .confidence-indicator {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
-
-    .confidence-indicator.high { background: #28a745; }
-    .confidence-indicator.medium { background: #ffc107; }
-    .confidence-indicator.low { background: #dc3545; }
-
-    .fields-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .field-item {
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      padding: 1.5rem;
-      transition: all 0.3s;
-    }
-
-    .field-item:hover {
-      border-color: #667eea;
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
-    }
-
-    .field-item.verified {
-      background: #f0f8f4;
-      border-color: #28a745;
-    }
-
-    .field-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-      gap: 1rem;
-    }
-
-    .field-header h3 {
-      margin: 0;
-      color: #333;
-      font-size: 1rem;
-    }
-
-    .field-actions {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-    }
-
-    .confidence-badge {
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .confidence-badge.high {
-      background: #d4edda;
-      color: #155724;
-    }
-
-    .confidence-badge.medium {
-      background: #fff3cd;
-      color: #856404;
-    }
-
-    .confidence-badge.low {
-      background: #f8d7da;
-      color: #721c24;
-    }
-
-    .verified-badge {
-      background: #28a745;
-      color: white;
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .edited-badge {
-      color: #667eea;
-      font-size: 0.875rem;
-      font-style: italic;
-    }
-
-    .field-content {
-      margin-top: 1rem;
-    }
-
-    .field-value {
-      margin: 0 0 1rem 0;
-      color: #333;
-      font-size: 1rem;
-      padding: 0.75rem;
-      background: #f8f9fa;
-      border-radius: 4px;
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 1rem;
-      box-sizing: border-box;
-      margin-bottom: 1rem;
-    }
-
-    .form-control:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    .view-mode {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .field-actions-buttons {
-      display: flex;
-      gap: 0.5rem;
-      flex-shrink: 0;
-    }
-
-    .edit-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-  `]
+  styles: []
 })
 export class DocumentDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);

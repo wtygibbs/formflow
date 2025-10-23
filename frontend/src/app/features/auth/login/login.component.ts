@@ -9,210 +9,110 @@ import { AuthService } from '../../../core/services/auth.service';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <div class="auth-container">
-      <div class="auth-card">
-        <h2>Sign In</h2>
-        <p class="subtitle">Welcome back to ACORD Parser</p>
+    <div class="flex justify-center items-center min-h-[calc(100vh-300px)]">
+      <div class="card bg-base-100 shadow-2xl w-full max-w-md">
+        <div class="card-body">
+          <h2 class="card-title text-3xl font-bold justify-center text-primary mb-2">Sign In</h2>
+          <p class="text-center text-base-content/60 mb-6">Welcome back to ACORD Parser</p>
 
-        @if (error()) {
-          <div class="alert alert-error">{{ error() }}</div>
-        }
-
-        @if (success()) {
-          <div class="alert alert-success">{{ success() }}</div>
-        }
-
-        <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
-          @if (!twoFactorRequired()) {
-            <div class="form-group">
-              <label for="email">Email</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                [(ngModel)]="email"
-                required
-                email
-                class="form-control"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="password">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                [(ngModel)]="password"
-                required
-                minlength="8"
-                class="form-control"
-                placeholder="Enter your password"
-              />
-            </div>
-          } @else {
-            <div class="form-group">
-              <label for="twoFactorCode">Two-Factor Authentication Code</label>
-              <input
-                type="text"
-                id="twoFactorCode"
-                name="twoFactorCode"
-                [(ngModel)]="twoFactorCode"
-                required
-                pattern="[0-9]{6}"
-                class="form-control"
-                placeholder="000000"
-                maxlength="6"
-              />
-              <small>Enter the 6-digit code from your authenticator app</small>
+          @if (error()) {
+            <div class="alert alert-error mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{{ error() }}</span>
             </div>
           }
 
-          <button
-            type="submit"
-            class="btn btn-primary btn-block"
-            [disabled]="!loginForm.valid || loading()"
-          >
-            @if (loading()) {
-              <span>Signing in...</span>
-            } @else {
-              <span>{{ twoFactorRequired() ? 'Verify Code' : 'Sign In' }}</span>
-            }
-          </button>
-        </form>
+          @if (success()) {
+            <div class="alert alert-success mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{{ success() }}</span>
+            </div>
+          }
 
-        <p class="auth-link">
-          Don't have an account? <a routerLink="/register">Sign up</a>
-        </p>
+          <form (ngSubmit)="onSubmit()" #loginForm="ngForm" class="space-y-4">
+            @if (!twoFactorRequired()) {
+              <div class="form-control">
+                <label class="label" for="email">
+                  <span class="label-text font-semibold">Email</span>
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  [(ngModel)]="email"
+                  required
+                  email
+                  class="input input-bordered w-full"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div class="form-control">
+                <label class="label" for="password">
+                  <span class="label-text font-semibold">Password</span>
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  [(ngModel)]="password"
+                  required
+                  minlength="8"
+                  class="input input-bordered w-full"
+                  placeholder="Enter your password"
+                />
+              </div>
+            } @else {
+              <div class="form-control">
+                <label class="label" for="twoFactorCode">
+                  <span class="label-text font-semibold">Two-Factor Authentication Code</span>
+                </label>
+                <input
+                  type="text"
+                  id="twoFactorCode"
+                  name="twoFactorCode"
+                  [(ngModel)]="twoFactorCode"
+                  required
+                  pattern="[0-9]{6}"
+                  class="input input-bordered w-full text-center text-2xl tracking-widest"
+                  placeholder="000000"
+                  maxlength="6"
+                />
+                <label class="label">
+                  <span class="label-text-alt">Enter the 6-digit code from your authenticator app</span>
+                </label>
+              </div>
+            }
+
+            <button
+              type="submit"
+              class="btn btn-primary w-full"
+              [disabled]="!loginForm.valid || loading()"
+            >
+              @if (loading()) {
+                <span class="loading loading-spinner"></span>
+                <span>Signing in...</span>
+              } @else {
+                <span>{{ twoFactorRequired() ? 'Verify Code' : 'Sign In' }}</span>
+              }
+            </button>
+          </form>
+
+          <div class="divider">OR</div>
+
+          <p class="text-center text-base-content/60">
+            Don't have an account?
+            <a routerLink="/register" class="link link-primary font-semibold">Sign up</a>
+          </p>
+        </div>
       </div>
     </div>
   `,
-  styles: [`
-    .auth-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: calc(100vh - 300px);
-    }
-
-    .auth-card {
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 400px;
-    }
-
-    h2 {
-      margin: 0 0 0.5rem 0;
-      text-align: center;
-      color: #667eea;
-    }
-
-    .subtitle {
-      text-align: center;
-      color: #6c757d;
-      margin: 0 0 2rem 0;
-    }
-
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: 600;
-      color: #333;
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 1rem;
-      box-sizing: border-box;
-    }
-
-    .form-control:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    small {
-      display: block;
-      margin-top: 0.5rem;
-      color: #6c757d;
-      font-size: 0.875rem;
-    }
-
-    .btn {
-      padding: 0.75rem 1.5rem;
-      border: none;
-      border-radius: 4px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .btn-block {
-      width: 100%;
-    }
-
-    .alert {
-      padding: 1rem;
-      border-radius: 4px;
-      margin-bottom: 1.5rem;
-    }
-
-    .alert-error {
-      background: #fee;
-      color: #c33;
-      border: 1px solid #fcc;
-    }
-
-    .alert-success {
-      background: #efe;
-      color: #3c3;
-      border: 1px solid #cfc;
-    }
-
-    .auth-link {
-      text-align: center;
-      margin-top: 1.5rem;
-      color: #6c757d;
-    }
-
-    .auth-link a {
-      color: #667eea;
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .auth-link a:hover {
-      text-decoration: underline;
-    }
-  `]
+  styles: []
 })
 export class LoginComponent {
   private authService = inject(AuthService);

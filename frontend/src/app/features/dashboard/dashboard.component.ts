@@ -9,197 +9,114 @@ import { SubscriptionService, SubscriptionResponse } from '../../core/services/s
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
-    <div class="dashboard">
-      <h1>Dashboard</h1>
+    <div class="space-y-8">
+      <h1 class="text-4xl font-bold text-base-content">Dashboard</h1>
 
-      <div class="stats-grid">
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         @if (subscription(); as sub) {
-          <div class="stat-card">
-            <h3>Documents This Month</h3>
-            <p class="stat-value">{{ sub.documentsProcessedThisMonth }} / {{ sub.documentLimit }}</p>
-          </div>
-
-          <div class="stat-card">
-            <h3>Subscription Tier</h3>
-            <p class="stat-value">{{ getTierName(sub.tier) }}</p>
-          </div>
-
-          <div class="stat-card">
-            <h3>Total Documents</h3>
-            <p class="stat-value">{{ recentDocuments().length }}</p>
-          </div>
-        }
-      </div>
-
-      <div class="actions">
-        <a routerLink="/documents" class="btn btn-primary">Upload New Document</a>
-        <a routerLink="/subscription" class="btn btn-outline">Manage Subscription</a>
-      </div>
-
-      <div class="recent-documents">
-        <h2>Recent Documents</h2>
-        @if (loading()) {
-          <p>Loading documents...</p>
-        } @else if (recentDocuments().length === 0) {
-          <p class="empty-state">No documents yet. Upload your first ACORD 125 form to get started!</p>
-        } @else {
-          <div class="document-list">
-            @for (doc of recentDocuments(); track doc.id) {
-              <div class="document-item">
-                <div class="document-info">
-                  <h4>{{ doc.fileName }}</h4>
-                  <p class="document-meta">
-                    Uploaded: {{ formatDate(doc.uploadedAt) }} •
-                    Status: <span [class]="'status-' + doc.status">{{ getStatusText(doc.status) }}</span>
-                  </p>
-                </div>
-                <a [routerLink]="['/documents', doc.id]" class="btn btn-sm">View Details</a>
+          <div class="stats shadow bg-base-100">
+            <div class="stat">
+              <div class="stat-title">Documents This Month</div>
+              <div class="stat-value text-primary">{{ sub.documentsProcessedThisMonth }} / {{ sub.documentLimit }}</div>
+              <div class="stat-desc">
+                @if (sub.documentsProcessedThisMonth >= sub.documentLimit) {
+                  <span class="text-error">Limit reached</span>
+                } @else {
+                  <span class="text-success">{{ sub.documentLimit - sub.documentsProcessedThisMonth }} remaining</span>
+                }
               </div>
-            }
+            </div>
+          </div>
+
+          <div class="stats shadow bg-base-100">
+            <div class="stat">
+              <div class="stat-title">Subscription Tier</div>
+              <div class="stat-value text-secondary">{{ getTierName(sub.tier) }}</div>
+              <div class="stat-desc">Current plan</div>
+            </div>
+          </div>
+
+          <div class="stats shadow bg-base-100">
+            <div class="stat">
+              <div class="stat-title">Total Documents</div>
+              <div class="stat-value text-accent">{{ recentDocuments().length }}</div>
+              <div class="stat-desc">All time</div>
+            </div>
           </div>
         }
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-4 flex-wrap">
+        <a routerLink="/documents" class="btn btn-primary btn-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          Upload New Document
+        </a>
+        <a routerLink="/subscription" class="btn btn-outline btn-lg">Manage Subscription</a>
+      </div>
+
+      <!-- Recent Documents -->
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">Recent Documents</h2>
+          @if (loading()) {
+            <div class="flex justify-center p-8">
+              <span class="loading loading-spinner loading-lg text-primary"></span>
+            </div>
+          } @else if (recentDocuments().length === 0) {
+            <div class="text-center py-12">
+              <div class="text-6xl mb-4">📄</div>
+              <p class="text-base-content/60">No documents yet. Upload your first ACORD 125 form to get started!</p>
+            </div>
+          } @else {
+            <div class="overflow-x-auto">
+              <table class="table table-zebra">
+                <thead>
+                  <tr>
+                    <th>File Name</th>
+                    <th>Uploaded</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (doc of recentDocuments(); track doc.id) {
+                    <tr class="hover">
+                      <td class="font-semibold">{{ doc.fileName }}</td>
+                      <td>{{ formatDate(doc.uploadedAt) }}</td>
+                      <td>
+                        @switch (doc.status) {
+                          @case (0) {
+                            <div class="badge badge-neutral">Uploaded</div>
+                          }
+                          @case (1) {
+                            <div class="badge badge-warning">Processing</div>
+                          }
+                          @case (2) {
+                            <div class="badge badge-success">Completed</div>
+                          }
+                          @case (3) {
+                            <div class="badge badge-error">Failed</div>
+                          }
+                        }
+                      </td>
+                      <td>
+                        <a [routerLink]="['/documents', doc.id]" class="btn btn-sm btn-primary">View Details</a>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
       </div>
     </div>
   `,
-  styles: [`
-    .dashboard {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      margin: 0 0 2rem 0;
-      color: #333;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2rem;
-    }
-
-    .stat-card {
-      background: white;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    .stat-card h3 {
-      margin: 0 0 1rem 0;
-      color: #6c757d;
-      font-size: 0.875rem;
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    .stat-value {
-      margin: 0;
-      font-size: 2rem;
-      font-weight: 700;
-      color: #667eea;
-    }
-
-    .actions {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 3rem;
-    }
-
-    .btn {
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: 600;
-      transition: all 0.3s;
-      border: 2px solid transparent;
-      display: inline-block;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-outline {
-      background: white;
-      color: #667eea;
-      border-color: #667eea;
-    }
-
-    .btn-outline:hover {
-      background: #667eea;
-      color: white;
-    }
-
-    .btn-sm {
-      padding: 0.5rem 1rem;
-      font-size: 0.875rem;
-    }
-
-    .recent-documents {
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    .recent-documents h2 {
-      margin: 0 0 1.5rem 0;
-      color: #333;
-    }
-
-    .empty-state {
-      text-align: center;
-      color: #6c757d;
-      padding: 2rem;
-    }
-
-    .document-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .document-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      transition: all 0.3s;
-    }
-
-    .document-item:hover {
-      border-color: #667eea;
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
-    }
-
-    .document-info h4 {
-      margin: 0 0 0.5rem 0;
-      color: #333;
-    }
-
-    .document-meta {
-      margin: 0;
-      color: #6c757d;
-      font-size: 0.875rem;
-    }
-
-    .status-0 { color: #6c757d; }
-    .status-1 { color: #ffc107; }
-    .status-2 { color: #28a745; }
-    .status-3 { color: #dc3545; }
-  `]
+  styles: []
 })
 export class DashboardComponent implements OnInit {
   private documentService = inject(DocumentService);

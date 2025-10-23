@@ -8,39 +8,61 @@ import { environment } from '../../../environments/environment';
 @Component({
   selector: 'app-subscription',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   template: `
-    <div class="subscription-container">
-      <h1>Subscription Management</h1>
+    <div class="space-y-8">
+      <h1 class="text-4xl font-bold text-base-content">Subscription Management</h1>
 
+      <!-- Current Plan -->
       @if (currentSubscription(); as sub) {
-        <div class="current-subscription">
-          <h2>Current Plan</h2>
-          <div class="subscription-card">
-            <div class="subscription-header">
-              <h3>{{ getTierName(sub.tier) }}</h3>
-              <span class="status-badge" [class]="'status-' + sub.status">{{ getStatusText(sub.status) }}</span>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="card-title text-2xl">Current Plan</h2>
+              @switch (sub.status) {
+                @case (0) {
+                  <div class="badge badge-success badge-lg">Active</div>
+                }
+                @case (1) {
+                  <div class="badge badge-error badge-lg">Cancelled</div>
+                }
+                @case (2) {
+                  <div class="badge badge-warning badge-lg">Past Due</div>
+                }
+                @case (3) {
+                  <div class="badge badge-neutral badge-lg">Expired</div>
+                }
+              }
             </div>
-            <div class="subscription-stats">
+
+            <div class="stats shadow bg-base-200 mb-6">
               <div class="stat">
-                <span class="stat-label">Documents Used</span>
-                <span class="stat-value">{{ sub.documentsProcessedThisMonth }} / {{ sub.documentLimit }}</span>
+                <div class="stat-title">Plan</div>
+                <div class="stat-value text-primary">{{ getTierName(sub.tier) }}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-title">Documents Used</div>
+                <div class="stat-value text-secondary">{{ sub.documentsProcessedThisMonth }} / {{ sub.documentLimit }}</div>
               </div>
               @if (sub.monthlyPrice) {
                 <div class="stat">
-                  <span class="stat-label">Monthly Price</span>
-                  <span class="stat-value">\${{ sub.monthlyPrice }}</span>
-                </div>
-              }
-              @if (sub.expiresAt) {
-                <div class="stat">
-                  <span class="stat-label">Renews On</span>
-                  <span class="stat-value">{{ formatDate(sub.expiresAt) }}</span>
+                  <div class="stat-title">Monthly Price</div>
+                  <div class="stat-value text-accent">\${{ sub.monthlyPrice }}</div>
                 </div>
               }
             </div>
+
+            @if (sub.expiresAt) {
+              <div class="alert alert-info mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>Renews on {{ formatDate(sub.expiresAt) }}</span>
+              </div>
+            }
+
             @if (sub.tier !== 0 && sub.status === 0) {
-              <button (click)="cancelSubscription()" class="btn btn-outline btn-danger">
+              <button (click)="cancelSubscription()" class="btn btn-error btn-outline">
                 Cancel Subscription
               </button>
             }
@@ -48,41 +70,70 @@ import { environment } from '../../../environments/environment';
         </div>
       }
 
-      <div class="available-plans">
-        <h2>Available Plans</h2>
+      <!-- Available Plans -->
+      <div>
+        <h2 class="text-3xl font-bold text-base-content mb-6">Available Plans</h2>
         @if (loading()) {
-          <p>Loading plans...</p>
+          <div class="flex justify-center p-16">
+            <span class="loading loading-spinner loading-lg text-primary"></span>
+          </div>
         } @else {
-          <div class="plans-grid">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             @for (tier of availableTiers(); track tier.tier) {
-              <div class="plan-card" [class.current]="isCurrentTier(tier.tier)">
-                @if (isCurrentTier(tier.tier)) {
-                  <div class="current-badge">Current Plan</div>
-                }
-                <h3>{{ tier.name }}</h3>
-                <p class="price">
-                  @if (tier.monthlyPrice === 0) {
-                    <span class="amount">Free</span>
+              <div class="card bg-base-100 shadow-xl"
+                   [class.border-2]="isCurrentTier(tier.tier)"
+                   [class.border-primary]="isCurrentTier(tier.tier)"
+                   [class.scale-105]="tier.tier === 1">
+                <div class="card-body">
+                  @if (isCurrentTier(tier.tier)) {
+                    <div class="badge badge-primary absolute -top-3 left-1/2 -translate-x-1/2">Current Plan</div>
+                  }
+                  @if (tier.tier === 1 && !isCurrentTier(tier.tier)) {
+                    <div class="badge badge-secondary absolute -top-3 left-1/2 -translate-x-1/2">Popular</div>
+                  }
+
+                  <h3 class="card-title text-2xl justify-center mt-2">{{ tier.name }}</h3>
+
+                  <div class="text-center my-6">
+                    @if (tier.monthlyPrice === 0) {
+                      <div class="text-5xl font-bold text-primary">Free</div>
+                    } @else {
+                      <div class="flex items-baseline justify-center">
+                        <span class="text-2xl text-primary font-bold">$</span>
+                        <span class="text-5xl font-bold text-primary">{{ tier.monthlyPrice }}</span>
+                        <span class="text-base-content/60 ml-2">/month</span>
+                      </div>
+                    }
+                  </div>
+
+                  <ul class="space-y-3 mb-6">
+                    @for (feature of tier.features; track feature) {
+                      <li class="flex items-start gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                        <span class="text-sm">{{ feature }}</span>
+                      </li>
+                    }
+                  </ul>
+
+                  @if (!isCurrentTier(tier.tier)) {
+                    @if (tier.tier === 0) {
+                      <button class="btn btn-outline w-full" disabled>Downgrade to Free</button>
+                    } @else {
+                      <button (click)="upgrade(tier.tier)" class="btn btn-primary w-full" [disabled]="upgrading()">
+                        @if (upgrading()) {
+                          <span class="loading loading-spinner"></span>
+                          Processing...
+                        } @else {
+                          Upgrade to {{ tier.name }}
+                        }
+                      </button>
+                    }
                   } @else {
-                    <span class="currency">$</span>
-                    <span class="amount">{{ tier.monthlyPrice }}</span>
-                    <span class="period">/month</span>
+                    <button class="btn btn-primary w-full" disabled>Current Plan</button>
                   }
-                </p>
-                <ul class="features">
-                  @for (feature of tier.features; track feature) {
-                    <li>{{ feature }}</li>
-                  }
-                </ul>
-                @if (!isCurrentTier(tier.tier)) {
-                  @if (tier.tier === 0) {
-                    <button class="btn btn-outline" disabled>Downgrade to Free</button>
-                  } @else {
-                    <button (click)="upgrade(tier.tier)" class="btn btn-primary" [disabled]="upgrading()">
-                      {{ upgrading() ? 'Processing...' : 'Upgrade to ' + tier.name }}
-                    </button>
-                  }
-                }
+                </div>
               </div>
             }
           </div>
@@ -90,222 +141,7 @@ import { environment } from '../../../environments/environment';
       </div>
     </div>
   `,
-  styles: [`
-    .subscription-container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      margin: 0 0 2rem 0;
-      color: #333;
-    }
-
-    h2 {
-      margin: 0 0 1.5rem 0;
-      color: #333;
-    }
-
-    .current-subscription {
-      margin-bottom: 3rem;
-    }
-
-    .subscription-card {
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    .subscription-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-    }
-
-    .subscription-header h3 {
-      margin: 0;
-      color: #667eea;
-      font-size: 1.5rem;
-    }
-
-    .status-badge {
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      font-size: 0.875rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .status-0 { background: #d4edda; color: #155724; }
-    .status-1 { background: #f8d7da; color: #721c24; }
-    .status-2 { background: #fff3cd; color: #856404; }
-    .status-3 { background: #e0e0e0; color: #666; }
-
-    .subscription-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 2rem;
-      margin-bottom: 2rem;
-    }
-
-    .stat {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .stat-label {
-      color: #6c757d;
-      font-size: 0.875rem;
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    .stat-value {
-      color: #333;
-      font-size: 1.25rem;
-      font-weight: 700;
-    }
-
-    .available-plans {
-      margin-bottom: 3rem;
-    }
-
-    .plans-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 2rem;
-    }
-
-    .plan-card {
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      position: relative;
-      transition: all 0.3s;
-    }
-
-    .plan-card:hover:not(.current) {
-      transform: translateY(-4px);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    }
-
-    .plan-card.current {
-      border: 2px solid #667eea;
-    }
-
-    .current-badge {
-      position: absolute;
-      top: -12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #667eea;
-      color: white;
-      padding: 0.25rem 1rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .plan-card h3 {
-      margin: 0 0 1rem 0;
-      color: #333;
-      font-size: 1.5rem;
-    }
-
-    .price {
-      margin: 0 0 2rem 0;
-      display: flex;
-      align-items: baseline;
-      gap: 0.25rem;
-    }
-
-    .currency {
-      font-size: 1.5rem;
-      color: #667eea;
-      font-weight: 700;
-    }
-
-    .amount {
-      font-size: 3rem;
-      color: #667eea;
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .period {
-      color: #6c757d;
-      font-size: 1rem;
-    }
-
-    .features {
-      list-style: none;
-      padding: 0;
-      margin: 0 0 2rem 0;
-    }
-
-    .features li {
-      padding: 0.75rem 0;
-      border-bottom: 1px solid #e0e0e0;
-      color: #333;
-    }
-
-    .features li:last-child {
-      border-bottom: none;
-    }
-
-    .btn {
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      font-weight: 600;
-      transition: all 0.3s;
-      border: 2px solid transparent;
-      cursor: pointer;
-      font-size: 1rem;
-      width: 100%;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-outline {
-      background: white;
-      color: #667eea;
-      border-color: #667eea;
-    }
-
-    .btn-outline:hover:not(:disabled) {
-      background: #667eea;
-      color: white;
-    }
-
-    .btn-danger {
-      color: #dc3545;
-      border-color: #dc3545;
-    }
-
-    .btn-danger:hover:not(:disabled) {
-      background: #dc3545;
-      color: white;
-    }
-  `]
+  styles: []
 })
 export class SubscriptionComponent implements OnInit {
   private subscriptionService = inject(SubscriptionService);
