@@ -10,34 +10,30 @@ import { AuthService } from '../../../core/services/auth.service';
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="flex justify-center items-center min-h-[calc(100vh-300px)]">
-      <div class="card bg-base-100 shadow-2xl w-full max-w-md">
-        <div class="card-body">
-          <h2 class="card-title text-3xl font-bold justify-center text-primary mb-2">Sign In</h2>
-          <p class="text-center text-base-content/60 mb-6">Welcome back to ACORD Parser</p>
+      <div class="w-full max-w-md">
+        <div class="rounded-lg border border-border bg-card p-8 shadow-sm">
+          <div class="mb-6 text-center">
+            <h2 class="text-2xl font-semibold tracking-tight">Sign In</h2>
+            <p class="mt-2 text-sm text-muted-foreground">Welcome back to ACORD Parser</p>
+          </div>
 
           @if (error()) {
-            <div class="alert alert-error mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{{ error() }}</span>
+            <div class="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {{ error() }}
             </div>
           }
 
           @if (success()) {
-            <div class="alert alert-success mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{{ success() }}</span>
+            <div class="mb-4 rounded-md border border-green-500/50 bg-green-500/10 px-4 py-3 text-sm text-green-700">
+              {{ success() }}
             </div>
           }
 
           <form (ngSubmit)="onSubmit()" #loginForm="ngForm" class="space-y-4">
             @if (!twoFactorRequired()) {
-              <div class="form-control">
-                <label class="label" for="email">
-                  <span class="label-text font-semibold">Email</span>
+              <div class="space-y-2">
+                <label for="email" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Email
                 </label>
                 <input
                   type="email"
@@ -46,14 +42,14 @@ import { AuthService } from '../../../core/services/auth.service';
                   [(ngModel)]="email"
                   required
                   email
-                  class="input input-bordered w-full"
+                  class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="you@example.com"
                 />
               </div>
 
-              <div class="form-control">
-                <label class="label" for="password">
-                  <span class="label-text font-semibold">Password</span>
+              <div class="space-y-2">
+                <label for="password" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Password
                 </label>
                 <input
                   type="password"
@@ -62,14 +58,14 @@ import { AuthService } from '../../../core/services/auth.service';
                   [(ngModel)]="password"
                   required
                   minlength="8"
-                  class="input input-bordered w-full"
+                  class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Enter your password"
                 />
               </div>
             } @else {
-              <div class="form-control">
-                <label class="label" for="twoFactorCode">
-                  <span class="label-text font-semibold">Two-Factor Authentication Code</span>
+              <div class="space-y-2">
+                <label for="twoFactorCode" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Two-Factor Authentication Code
                 </label>
                 <input
                   type="text"
@@ -78,35 +74,35 @@ import { AuthService } from '../../../core/services/auth.service';
                   [(ngModel)]="twoFactorCode"
                   required
                   pattern="[0-9]{6}"
-                  class="input input-bordered w-full text-center text-2xl tracking-widest"
+                  class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-center text-2xl tracking-widest ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   placeholder="000000"
                   maxlength="6"
                 />
-                <label class="label">
-                  <span class="label-text-alt">Enter the 6-digit code from your authenticator app</span>
-                </label>
+                <p class="text-xs text-muted-foreground">Enter the 6-digit code from your authenticator app</p>
               </div>
             }
 
             <button
               type="submit"
-              class="btn btn-primary w-full"
+              class="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               [disabled]="!loginForm.valid || loading()"
             >
-              @if (loading()) {
-                <span class="loading loading-spinner"></span>
-                <span>Signing in...</span>
-              } @else {
-                <span>{{ twoFactorRequired() ? 'Verify Code' : 'Sign In' }}</span>
-              }
+              {{ loading() ? 'Signing in...' : (twoFactorRequired() ? 'Verify Code' : 'Sign In') }}
             </button>
           </form>
 
-          <div class="divider">OR</div>
+          <div class="relative my-4">
+            <div class="absolute inset-0 flex items-center">
+              <span class="w-full border-t border-border"></span>
+            </div>
+            <div class="relative flex justify-center text-xs uppercase">
+              <span class="bg-card px-2 text-muted-foreground">Or</span>
+            </div>
+          </div>
 
-          <p class="text-center text-base-content/60">
+          <p class="text-center text-sm text-muted-foreground">
             Don't have an account?
-            <a routerLink="/register" class="link link-primary font-semibold">Sign up</a>
+            <a routerLink="/register" class="font-medium text-primary hover:underline">Sign up</a>
           </p>
         </div>
       </div>
