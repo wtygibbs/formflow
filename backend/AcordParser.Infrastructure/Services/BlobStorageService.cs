@@ -41,8 +41,13 @@ public class BlobStorageService : IBlobStorageService
         var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
         var blobClient = containerClient.GetBlobClient(blobName);
 
-        var response = await blobClient.DownloadAsync();
-        return response.Value.Content;
+        // Download to a MemoryStream to ensure the stream is seekable
+        // Azure AI Document Intelligence requires seekable streams
+        var memoryStream = new MemoryStream();
+        await blobClient.DownloadToAsync(memoryStream);
+        memoryStream.Position = 0; // Reset position to the beginning
+
+        return memoryStream;
     }
 
     public async Task DeleteFileAsync(string blobUrl)
