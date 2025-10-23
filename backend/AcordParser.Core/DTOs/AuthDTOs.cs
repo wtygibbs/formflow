@@ -1,3 +1,5 @@
+using AcordParser.Core.Entities;
+
 namespace AcordParser.Core.DTOs;
 
 public record RegisterRequest(

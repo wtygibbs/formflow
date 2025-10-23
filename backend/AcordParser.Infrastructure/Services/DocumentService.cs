@@ -80,7 +80,8 @@ public class DocumentService : IDocumentService
         await _context.SaveChangesAsync();
 
         // Process document asynchronously (in background)
-        _ = Task.Run(() => ProcessDocumentAsync(document.Id));
+        await ProcessDocumentAsync(document.Id);
+        //_ = Task.Run(() => ProcessDocumentAsync(document.Id));
 
         return new UploadDocumentResponse(document.Id, document.FileName, document.Status);
     }

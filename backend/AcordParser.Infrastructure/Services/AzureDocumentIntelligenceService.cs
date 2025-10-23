@@ -66,8 +66,8 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
                         if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
                         {
                             // Use average confidence from cells
-                            var avgConfidence = rowCells.Average(c => c.BoundingRegions.FirstOrDefault()?.Polygon.Count > 0 ? 0.8f : 0.5f);
-                            results[$"Table_{table.BoundingRegions.FirstOrDefault()?.PageNumber ?? 0}_{key}"] = (value, avgConfidence);
+                            var avgConfidence = rowCells.Average(c => c.BoundingRegions.FirstOrDefault().BoundingPolygon.Count > 0 ? 0.8f : 0.5f);
+                            results[$"Table_{table.BoundingRegions.FirstOrDefault().PageNumber}_{key}"] = (value, avgConfidence);
                         }
                     }
                 }
@@ -115,7 +115,7 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
 
                             if (!results.ContainsKey(key) && !string.IsNullOrWhiteSpace(value))
                             {
-                                results[key] = (value, line.Words.Average(w => w.Confidence));
+                                results[key] = (value, line.GetWords().Average(w => w.Confidence));
                             }
                         }
                     }

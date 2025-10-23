@@ -4,7 +4,10 @@
     // ==================== COMPOSITE TASKS ====================
     {
       "label": "🚀 Run Full Stack",
-      "dependsOn": ["Run Backend", "Run Frontend"],
+      "dependsOn": [
+        "Run Backend",
+        "Run Frontend"
+      ],
       "problemMatcher": [],
       "group": {
         "kind": "build",
@@ -17,22 +20,31 @@
     },
     {
       "label": "🏗️ Build All",
-      "dependsOn": ["Build Backend", "Build Frontend"],
+      "dependsOn": [
+        "Build Backend",
+        "Build Frontend"
+      ],
       "problemMatcher": [],
       "group": "build"
     },
     {
       "label": "📦 Restore All",
-      "dependsOn": ["Restore Backend", "Install Frontend Dependencies"],
+      "dependsOn": [
+        "Restore Backend",
+        "Install Frontend Dependencies"
+      ],
       "problemMatcher": []
     },
-
     // ==================== BACKEND TASKS ====================
     {
       "label": "Run Backend",
       "type": "shell",
       "command": "dotnet",
-      "args": ["run", "--project", "${workspaceFolder}/backend/AcordParser.API/AcordParser.API.csproj"],
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/backend/AcordParser.API/AcordParser.API.csproj"
+      ],
       "problemMatcher": "$msCompile",
       "group": "build",
       "presentation": {
@@ -70,7 +82,10 @@
       "label": "Restore Backend",
       "type": "shell",
       "command": "dotnet",
-      "args": ["restore", "${workspaceFolder}/backend/AcordParser.sln"],
+      "args": [
+        "restore",
+        "${workspaceFolder}/backend/AcordParser.sln"
+      ],
       "problemMatcher": "$msCompile",
       "presentation": {
         "reveal": "silent",
@@ -85,7 +100,10 @@
       "label": "Clean Backend",
       "type": "shell",
       "command": "dotnet",
-      "args": ["clean", "${workspaceFolder}/backend/AcordParser.sln"],
+      "args": [
+        "clean",
+        "${workspaceFolder}/backend/AcordParser.sln"
+      ],
       "problemMatcher": "$msCompile",
       "presentation": {
         "reveal": "silent",
@@ -100,7 +118,12 @@
       "label": "Watch Backend",
       "type": "shell",
       "command": "dotnet",
-      "args": ["watch", "run", "--project", "${workspaceFolder}/backend/AcordParser.API/AcordParser.API.csproj"],
+      "args": [
+        "watch",
+        "run",
+        "--project",
+        "${workspaceFolder}/backend/AcordParser.API/AcordParser.API.csproj"
+      ],
       "problemMatcher": "$msCompile",
       "isBackground": true,
       "presentation": {
@@ -113,7 +136,6 @@
         "color": "terminal.ansiBlue"
       }
     },
-
     // ==================== DATABASE MIGRATION TASKS ====================
     {
       "label": "📊 EF: Add Migration",
@@ -125,7 +147,7 @@
         "add",
         "${input:migrationName}",
         "--project",
-        "${workspaceFolder}/backend/AcordParser.API/AcordParser.API.csproj",
+        "${workspaceFolder}/backend/AcordParser.Infrastructure/AcordParser.Infrastructure.csproj",
         "--startup-project",
         "${workspaceFolder}/backend/AcordParser.API/AcordParser.API.csproj"
       ],
@@ -148,7 +170,7 @@
         "database",
         "update",
         "--project",
-        "${workspaceFolder}/backend/AcordParser.API/AcordParser.API.csproj",
+        "${workspaceFolder}/backend/AcordParser.Infrastructure/AcordParser.Infrastructure.csproj",
         "--startup-project",
         "${workspaceFolder}/backend/AcordParser.API/AcordParser.API.csproj"
       ],
@@ -258,13 +280,14 @@
         "color": "terminal.ansiCyan"
       }
     },
-
     // ==================== FRONTEND TASKS ====================
     {
       "label": "Run Frontend",
       "type": "shell",
       "command": "npm",
-      "args": ["start"],
+      "args": [
+        "start"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
@@ -284,7 +307,10 @@
       "label": "Build Frontend",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "build"],
+      "args": [
+        "run",
+        "build"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
@@ -303,7 +329,13 @@
       "label": "Build Frontend (Production)",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "build", "--", "--configuration", "production"],
+      "args": [
+        "run",
+        "build",
+        "--",
+        "--configuration",
+        "production"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
@@ -322,7 +354,9 @@
       "label": "Install Frontend Dependencies",
       "type": "shell",
       "command": "npm",
-      "args": ["install"],
+      "args": [
+        "install"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
@@ -340,7 +374,10 @@
       "label": "Lint Frontend",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "lint"],
+      "args": [
+        "run",
+        "lint"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
@@ -358,7 +395,9 @@
       "label": "Test Frontend",
       "type": "shell",
       "command": "npm",
-      "args": ["test"],
+      "args": [
+        "test"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
@@ -372,13 +411,15 @@
         "color": "terminal.ansiGreen"
       }
     },
-
     // ==================== DOCKER TASKS ====================
     {
       "label": "🐳 Docker: Compose Up",
       "type": "shell",
       "command": "docker-compose",
-      "args": ["up", "-d"],
+      "args": [
+        "up",
+        "-d"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -396,7 +437,9 @@
       "label": "🐳 Docker: Compose Down",
       "type": "shell",
       "command": "docker-compose",
-      "args": ["down"],
+      "args": [
+        "down"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -414,7 +457,9 @@
       "label": "🐳 Docker: Compose Build",
       "type": "shell",
       "command": "docker-compose",
-      "args": ["build"],
+      "args": [
+        "build"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -432,7 +477,10 @@
       "label": "🐳 Docker: View Logs",
       "type": "shell",
       "command": "docker-compose",
-      "args": ["logs", "-f"],
+      "args": [
+        "logs",
+        "-f"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -451,7 +499,9 @@
       "label": "🐳 Docker: Restart",
       "type": "shell",
       "command": "docker-compose",
-      "args": ["restart"],
+      "args": [
+        "restart"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -465,13 +515,15 @@
         "color": "terminal.ansiGreen"
       }
     },
-
     // ==================== TEST TASKS ====================
     {
       "label": "Test Backend",
       "type": "shell",
       "command": "dotnet",
-      "args": ["test", "${workspaceFolder}/backend/AcordParser.sln"],
+      "args": [
+        "test",
+        "${workspaceFolder}/backend/AcordParser.sln"
+      ],
       "problemMatcher": "$msCompile",
       "group": "test",
       "presentation": {
@@ -485,18 +537,26 @@
     },
     {
       "label": "🧪 Test All",
-      "dependsOn": ["Test Backend", "Test Frontend"],
+      "dependsOn": [
+        "Test Backend",
+        "Test Frontend"
+      ],
       "problemMatcher": [],
       "group": "test"
     },
-
     // ==================== UTILITY TASKS ====================
     {
       "label": "🧹 Clean All",
-      "dependsOn": ["Clean Backend"],
+      "dependsOn": [
+        "Clean Backend"
+      ],
       "type": "shell",
       "command": "rm",
-      "args": ["-rf", "${workspaceFolder}/frontend/dist", "${workspaceFolder}/frontend/node_modules"],
+      "args": [
+        "-rf",
+        "${workspaceFolder}/frontend/dist",
+        "${workspaceFolder}/frontend/node_modules"
+      ],
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -507,7 +567,9 @@
       "label": "📊 Open Swagger",
       "type": "shell",
       "command": "open",
-      "args": ["https://localhost:5001/swagger"],
+      "args": [
+        "https://localhost:5001/swagger"
+      ],
       "problemMatcher": [],
       "presentation": {
         "reveal": "never"
@@ -521,7 +583,9 @@
       "label": "🌐 Open Frontend",
       "type": "shell",
       "command": "open",
-      "args": ["http://localhost:4200"],
+      "args": [
+        "http://localhost:4200"
+      ],
       "problemMatcher": [],
       "presentation": {
         "reveal": "never"

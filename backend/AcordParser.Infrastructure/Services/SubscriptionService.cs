@@ -120,15 +120,15 @@ public class SubscriptionService : ISubscriptionService
 
             switch (stripeEvent.Type)
             {
-                case Events.CheckoutSessionCompleted:
+                case "checkout.session.completed":
                     await HandleCheckoutSessionCompletedAsync(stripeEvent);
                     break;
 
-                case Events.CustomerSubscriptionUpdated:
+                case "customer.subscription.updated":
                     await HandleSubscriptionUpdatedAsync(stripeEvent);
                     break;
 
-                case Events.CustomerSubscriptionDeleted:
+                case "customer.subscription.deleted":
                     await HandleSubscriptionDeletedAsync(stripeEvent);
                     break;
             }

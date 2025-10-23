@@ -35,14 +35,41 @@ public class BlobStorageService : IBlobStorageService
 
     public async Task<Stream> DownloadFileAsync(string blobUrl)
     {
-        var blobClient = new BlobClient(new Uri(blobUrl));
+        // Extract blob name from URL
+        var blobName = GetBlobNameFromUrl(blobUrl);
+
+        var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
+        var blobClient = containerClient.GetBlobClient(blobName);
+
         var response = await blobClient.DownloadAsync();
         return response.Value.Content;
     }
 
     public async Task DeleteFileAsync(string blobUrl)
     {
-        var blobClient = new BlobClient(new Uri(blobUrl));
+        // Extract blob name from URL
+        var blobName = GetBlobNameFromUrl(blobUrl);
+
+        var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
+        var blobClient = containerClient.GetBlobClient(blobName);
+
         await blobClient.DeleteIfExistsAsync();
+    }
+
+    private string GetBlobNameFromUrl(string blobUrl)
+    {
+        // Extract blob name from URL
+        // Format: https://{account}.blob.core.windows.net/{container}/{blobName}
+        var uri = new Uri(blobUrl);
+        var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        // First segment is container name, rest is blob name (including any folder structure)
+        if (segments.Length < 2)
+        {
+            throw new ArgumentException("Invalid blob URL format", nameof(blobUrl));
+        }
+
+        // Join all segments after container name to handle blob names with '/' (folder structure)
+        return string.Join("/", segments.Skip(1));
     }
 }
