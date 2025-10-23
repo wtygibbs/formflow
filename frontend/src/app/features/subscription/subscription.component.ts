@@ -11,58 +11,55 @@ import { environment } from '../../../environments/environment';
   imports: [CommonModule],
   template: `
     <div class="space-y-8">
-      <h1 class="text-4xl font-bold text-base-content">Subscription Management</h1>
+      <h1 class="text-3xl font-bold">Subscription Management</h1>
 
       <!-- Current Plan -->
       @if (currentSubscription(); as sub) {
-        <div class="card bg-base-100 shadow-xl">
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
           <div class="card-body">
             <div class="flex justify-between items-center mb-6">
-              <h2 class="card-title text-2xl">Current Plan</h2>
+              <h2 class="text-xl font-semibold">Current Plan</h2>
               @switch (sub.status) {
                 @case (0) {
-                  <div class="badge badge-success badge-lg">Active</div>
+                  <div class="badge badge-success">Active</div>
                 }
                 @case (1) {
-                  <div class="badge badge-error badge-lg">Cancelled</div>
+                  <div class="badge badge-error">Cancelled</div>
                 }
                 @case (2) {
-                  <div class="badge badge-warning badge-lg">Past Due</div>
+                  <div class="badge badge-warning">Past Due</div>
                 }
                 @case (3) {
-                  <div class="badge badge-neutral badge-lg">Expired</div>
+                  <div class="badge badge-neutral">Expired</div>
                 }
               }
             </div>
 
-            <div class="stats shadow bg-base-200 mb-6">
+            <div class="stats border border-base-300 shadow-sm bg-base-100 mb-6">
               <div class="stat">
                 <div class="stat-title">Plan</div>
                 <div class="stat-value text-primary">{{ getTierName(sub.tier) }}</div>
               </div>
               <div class="stat">
                 <div class="stat-title">Documents Used</div>
-                <div class="stat-value text-secondary">{{ sub.documentsProcessedThisMonth }} / {{ sub.documentLimit }}</div>
+                <div class="stat-value">{{ sub.documentsProcessedThisMonth }} / {{ sub.documentLimit }}</div>
               </div>
               @if (sub.monthlyPrice) {
                 <div class="stat">
                   <div class="stat-title">Monthly Price</div>
-                  <div class="stat-value text-accent">\${{ sub.monthlyPrice }}</div>
+                  <div class="stat-value">\${{ sub.monthlyPrice }}</div>
                 </div>
               }
             </div>
 
             @if (sub.expiresAt) {
               <div class="alert alert-info mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
                 <span>Renews on {{ formatDate(sub.expiresAt) }}</span>
               </div>
             }
 
             @if (sub.tier !== 0 && sub.status === 0) {
-              <button (click)="cancelSubscription()" class="btn btn-error btn-outline">
+              <button (click)="cancelSubscription()" class="btn btn-error btn-outline btn-sm">
                 Cancel Subscription
               </button>
             }
@@ -72,46 +69,43 @@ import { environment } from '../../../environments/environment';
 
       <!-- Available Plans -->
       <div>
-        <h2 class="text-3xl font-bold text-base-content mb-6">Available Plans</h2>
+        <h2 class="text-2xl font-semibold mb-6">Available Plans</h2>
         @if (loading()) {
           <div class="flex justify-center p-16">
-            <span class="loading loading-spinner loading-lg text-primary"></span>
+            <span class="loading loading-spinner loading-lg"></span>
           </div>
         } @else {
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             @for (tier of availableTiers(); track tier.tier) {
-              <div class="card bg-base-100 shadow-xl"
+              <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow"
                    [class.border-2]="isCurrentTier(tier.tier)"
-                   [class.border-primary]="isCurrentTier(tier.tier)"
-                   [class.scale-105]="tier.tier === 1">
+                   [class.border-primary]="isCurrentTier(tier.tier)">
                 <div class="card-body">
                   @if (isCurrentTier(tier.tier)) {
                     <div class="badge badge-primary absolute -top-3 left-1/2 -translate-x-1/2">Current Plan</div>
                   }
                   @if (tier.tier === 1 && !isCurrentTier(tier.tier)) {
-                    <div class="badge badge-secondary absolute -top-3 left-1/2 -translate-x-1/2">Popular</div>
+                    <div class="badge badge-primary absolute -top-3 left-1/2 -translate-x-1/2">Popular</div>
                   }
 
-                  <h3 class="card-title text-2xl justify-center mt-2">{{ tier.name }}</h3>
+                  <h3 class="text-xl font-semibold text-center mt-2">{{ tier.name }}</h3>
 
                   <div class="text-center my-6">
                     @if (tier.monthlyPrice === 0) {
-                      <div class="text-5xl font-bold text-primary">Free</div>
+                      <div class="text-4xl font-bold">Free</div>
                     } @else {
                       <div class="flex items-baseline justify-center">
-                        <span class="text-2xl text-primary font-bold">$</span>
-                        <span class="text-5xl font-bold text-primary">{{ tier.monthlyPrice }}</span>
-                        <span class="text-base-content/60 ml-2">/month</span>
+                        <span class="text-xl font-bold">$</span>
+                        <span class="text-4xl font-bold">{{ tier.monthlyPrice }}</span>
+                        <span class="text-base-content/70 text-sm ml-1">/month</span>
                       </div>
                     }
                   </div>
 
-                  <ul class="space-y-3 mb-6">
+                  <ul class="space-y-2 mb-6">
                     @for (feature of tier.features; track feature) {
-                      <li class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                        </svg>
+                      <li class="flex items-center gap-2">
+                        <span class="text-success">✓</span>
                         <span class="text-sm">{{ feature }}</span>
                       </li>
                     }
@@ -119,19 +113,14 @@ import { environment } from '../../../environments/environment';
 
                   @if (!isCurrentTier(tier.tier)) {
                     @if (tier.tier === 0) {
-                      <button class="btn btn-outline w-full" disabled>Downgrade to Free</button>
+                      <button class="btn btn-outline btn-sm w-full" disabled>Downgrade to Free</button>
                     } @else {
-                      <button (click)="upgrade(tier.tier)" class="btn btn-primary w-full" [disabled]="upgrading()">
-                        @if (upgrading()) {
-                          <span class="loading loading-spinner"></span>
-                          Processing...
-                        } @else {
-                          Upgrade to {{ tier.name }}
-                        }
+                      <button (click)="upgrade(tier.tier)" class="btn btn-primary btn-sm w-full" [disabled]="upgrading()">
+                        {{ upgrading() ? 'Processing...' : 'Upgrade to ' + tier.name }}
                       </button>
                     }
                   } @else {
-                    <button class="btn btn-primary w-full" disabled>Current Plan</button>
+                    <button class="btn btn-primary btn-sm w-full" disabled>Current Plan</button>
                   }
                 </div>
               </div>

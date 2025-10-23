@@ -10,25 +10,21 @@ import { AuthService } from '../../../core/services/auth.service';
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="flex justify-center items-center min-h-[calc(100vh-300px)]">
-      <div class="card bg-base-100 shadow-2xl w-full max-w-md">
+      <div class="card bg-base-100 border border-base-300 shadow-sm w-full max-w-md">
         <div class="card-body">
-          <h2 class="card-title text-3xl font-bold justify-center text-primary mb-2">Create Account</h2>
-          <p class="text-center text-base-content/60 mb-6">Start parsing ACORD forms with AI</p>
+          <div class="text-center mb-6">
+            <h2 class="text-2xl font-semibold">Create Account</h2>
+            <p class="text-sm text-base-content/70 mt-2">Start parsing ACORD forms with AI</p>
+          </div>
 
           @if (error()) {
             <div class="alert alert-error mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
               <span>{{ error() }}</span>
             </div>
           }
 
           @if (success()) {
             <div class="alert alert-success mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
               <span>{{ success() }}</span>
             </div>
           }
@@ -36,7 +32,7 @@ import { AuthService } from '../../../core/services/auth.service';
           <form (ngSubmit)="onSubmit()" #registerForm="ngForm" class="space-y-4">
             <div class="form-control">
               <label class="label" for="email">
-                <span class="label-text font-semibold">Email</span>
+                <span class="label-text">Email</span>
               </label>
               <input
                 type="email"
@@ -52,7 +48,7 @@ import { AuthService } from '../../../core/services/auth.service';
 
             <div class="form-control">
               <label class="label" for="password">
-                <span class="label-text font-semibold">Password</span>
+                <span class="label-text">Password</span>
               </label>
               <input
                 type="password"
@@ -71,7 +67,7 @@ import { AuthService } from '../../../core/services/auth.service';
 
             <div class="form-control">
               <label class="label" for="confirmPassword">
-                <span class="label-text font-semibold">Confirm Password</span>
+                <span class="label-text">Confirm Password</span>
               </label>
               <input
                 type="password"
@@ -90,20 +86,15 @@ import { AuthService } from '../../../core/services/auth.service';
               class="btn btn-primary w-full"
               [disabled]="!registerForm.valid || loading()"
             >
-              @if (loading()) {
-                <span class="loading loading-spinner"></span>
-                <span>Creating account...</span>
-              } @else {
-                <span>Sign Up</span>
-              }
+              {{ loading() ? 'Creating account...' : 'Sign Up' }}
             </button>
           </form>
 
-          <div class="divider">OR</div>
+          <div class="divider text-xs">OR</div>
 
-          <p class="text-center text-base-content/60">
+          <p class="text-center text-sm text-base-content/70">
             Already have an account?
-            <a routerLink="/login" class="link link-primary font-semibold">Sign in</a>
+            <a routerLink="/login" class="link link-primary">Sign in</a>
           </p>
         </div>
       </div>

@@ -10,12 +10,12 @@ import { SubscriptionResponse, SubscriptionService } from '../../core/services/s
   imports: [CommonModule, RouterLink],
   template: `
     <div class="space-y-8">
-      <h1 class="text-4xl font-bold text-base-content">Dashboard</h1>
+      <h1 class="text-3xl font-bold">Dashboard</h1>
 
       <!-- Stats Grid -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         @if (subscription(); as sub) {
-          <div class="stats shadow bg-base-100">
+          <div class="stats border border-base-300 shadow-sm bg-base-100">
             <div class="stat">
               <div class="stat-title">Documents This Month</div>
               <div class="stat-value text-primary">{{ sub.documentsProcessedThisMonth }} / {{ sub.documentLimit }}</div>
@@ -29,18 +29,18 @@ import { SubscriptionResponse, SubscriptionService } from '../../core/services/s
             </div>
           </div>
 
-          <div class="stats shadow bg-base-100">
+          <div class="stats border border-base-300 shadow-sm bg-base-100">
             <div class="stat">
               <div class="stat-title">Subscription Tier</div>
-              <div class="stat-value text-secondary">{{ getTierName(sub.tier) }}</div>
+              <div class="stat-value">{{ getTierName(sub.tier) }}</div>
               <div class="stat-desc">Current plan</div>
             </div>
           </div>
 
-          <div class="stats shadow bg-base-100">
+          <div class="stats border border-base-300 shadow-sm bg-base-100">
             <div class="stat">
               <div class="stat-title">Total Documents</div>
-              <div class="stat-value text-accent">{{ recentDocuments().length }}</div>
+              <div class="stat-value">{{ recentDocuments().length }}</div>
               <div class="stat-desc">All time</div>
             </div>
           </div>
@@ -49,31 +49,27 @@ import { SubscriptionResponse, SubscriptionService } from '../../core/services/s
 
       <!-- Actions -->
       <div class="flex gap-4 flex-wrap">
-        <a routerLink="/documents" class="btn btn-primary btn-lg">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
+        <a routerLink="/documents" class="btn btn-primary">
           Upload New Document
         </a>
-        <a routerLink="/subscription" class="btn btn-outline btn-lg">Manage Subscription</a>
+        <a routerLink="/subscription" class="btn btn-outline">Manage Subscription</a>
       </div>
 
       <!-- Recent Documents -->
-      <div class="card bg-base-100 shadow-xl">
+      <div class="card bg-base-100 border border-base-300 shadow-sm">
         <div class="card-body">
-          <h2 class="card-title text-2xl mb-4">Recent Documents</h2>
+          <h2 class="text-xl font-semibold mb-4">Recent Documents</h2>
           @if (loading()) {
             <div class="flex justify-center p-8">
-              <span class="loading loading-spinner loading-lg text-primary"></span>
+              <span class="loading loading-spinner loading-lg"></span>
             </div>
           } @else if (recentDocuments().length === 0) {
             <div class="text-center py-12">
-              <div class="text-6xl mb-4">📄</div>
-              <p class="text-base-content/60">No documents yet. Upload your first ACORD 125 form to get started!</p>
+              <p class="text-base-content/70">No documents yet. Upload your first ACORD 125 form to get started!</p>
             </div>
           } @else {
             <div class="overflow-x-auto">
-              <table class="table table-zebra">
+              <table class="table">
                 <thead>
                   <tr>
                     <th>File Name</th>
@@ -85,26 +81,26 @@ import { SubscriptionResponse, SubscriptionService } from '../../core/services/s
                 <tbody>
                   @for (doc of recentDocuments(); track doc.id) {
                     <tr class="hover">
-                      <td class="font-semibold">{{ doc.fileName }}</td>
-                      <td>{{ formatDate(doc.uploadedAt) }}</td>
+                      <td class="font-medium">{{ doc.fileName }}</td>
+                      <td class="text-sm">{{ formatDate(doc.uploadedAt) }}</td>
                       <td>
                         @switch (doc.status) {
                           @case (0) {
-                            <div class="badge badge-neutral">Uploaded</div>
+                            <div class="badge badge-neutral badge-sm">Uploaded</div>
                           }
                           @case (1) {
-                            <div class="badge badge-warning">Processing</div>
+                            <div class="badge badge-warning badge-sm">Processing</div>
                           }
                           @case (2) {
-                            <div class="badge badge-success">Completed</div>
+                            <div class="badge badge-success badge-sm">Completed</div>
                           }
                           @case (3) {
-                            <div class="badge badge-error">Failed</div>
+                            <div class="badge badge-error badge-sm">Failed</div>
                           }
                         }
                       </td>
                       <td>
-                        <a [routerLink]="['/documents', doc.id]" class="btn btn-sm btn-primary">View Details</a>
+                        <a [routerLink]="['/documents', doc.id]" class="btn btn-sm btn-primary">View</a>
                       </td>
                     </tr>
                   }
