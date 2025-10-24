@@ -1,8 +1,7 @@
-import { Component, computed, effect, inject, input, output, signal, OnDestroy } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
@@ -11,7 +10,6 @@ import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/services/document.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-document-preview-panel',
@@ -30,10 +28,9 @@ import { environment } from '../../../../environments/environment';
   templateUrl: './document-preview-panel.component.html',
   styleUrls: ['./document-preview-panel.component.css']
 })
-export class DocumentPreviewPanelComponent implements OnDestroy {
+export class DocumentPreviewPanelComponent {
   private documentService = inject(DocumentService);
   private toastService = inject(ToastService);
-  private http = inject(HttpClient);
 
   // Inputs
   documentId = input.required<string>();
@@ -47,13 +44,18 @@ export class DocumentPreviewPanelComponent implements OnDestroy {
   loading = signal(false);
   editingField = signal<string | null>(null);
   editValue = signal('');
-  filePreviewUrl = signal<string | null>(null);
 
   // Computed
   topFields = computed(() => {
     const doc = this.document();
     if (!doc) return [];
     return doc.extractedFields.slice(0, 5); // Show top 5 fields
+  });
+
+  filePreviewUrl = computed(() => {
+    const doc = this.document();
+    // FileUrl now contains a SAS URL from the backend
+    return doc?.fileUrl || null;
   });
 
   constructor() {
@@ -69,20 +71,10 @@ export class DocumentPreviewPanelComponent implements OnDestroy {
   private loadDocument(id: string) {
     this.loading.set(true);
 
-    // Clean up previous blob URL if exists
-    const previousUrl = this.filePreviewUrl();
-    if (previousUrl) {
-      URL.revokeObjectURL(previousUrl);
-      this.filePreviewUrl.set(null);
-    }
-
     this.documentService.getDocument(id).subscribe({
       next: (doc) => {
         this.document.set(doc);
         this.loading.set(false);
-
-        // Fetch document file preview with auth token
-        this.loadFilePreview(id);
       },
       error: (err) => {
         this.loading.set(false);
@@ -91,30 +83,8 @@ export class DocumentPreviewPanelComponent implements OnDestroy {
     });
   }
 
-  private loadFilePreview(id: string) {
-    const url = `${environment.apiUrl}/documents/${id}/file`;
-    this.http.get(url, { responseType: 'blob' }).subscribe({
-      next: (blob) => {
-        const blobUrl = URL.createObjectURL(blob);
-        this.filePreviewUrl.set(blobUrl);
-      },
-      error: (err) => {
-        console.error('Failed to load document preview', err);
-        // Don't show error toast, just fail silently for preview
-      }
-    });
-  }
-
   close() {
     this.closed.emit();
-  }
-
-  ngOnDestroy() {
-    // Clean up blob URL when component is destroyed
-    const url = this.filePreviewUrl();
-    if (url) {
-      URL.revokeObjectURL(url);
-    }
   }
 
   startEdit(field: ExtractedField) {

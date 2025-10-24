@@ -422,22 +422,28 @@ app.MapGet("/api/documents/{documentId}/export", async (Guid documentId, IDocume
 .WithName("ExportDocument")
 .WithTags("Documents");
 
-app.MapGet("/api/documents/{documentId}/file", async (Guid documentId, IDocumentService documentService, IBlobStorageService blobStorage, ClaimsPrincipal user) =>
+app.MapGet("/api/documents/{documentId}/file", async (Guid documentId, IDocumentService documentService, IBlobStorageService blobStorage, ClaimsPrincipal user, ILogger<Program> logger) =>
 {
     var userId = GetUserId(user);
 
     try
     {
+        logger.LogInformation("Fetching document file for documentId: {DocumentId}, userId: {UserId}", documentId, userId);
+
         var document = await documentService.GetDocumentDetailAsync(documentId, userId);
         if (document == null)
         {
+            logger.LogWarning("Document not found: {DocumentId}", documentId);
             return Results.NotFound(new { error = "Document not found" });
         }
 
         if (string.IsNullOrEmpty(document.FileUrl))
         {
+            logger.LogWarning("Document has no file URL: {DocumentId}", documentId);
             return Results.NotFound(new { error = "Document file not found" });
         }
+
+        logger.LogInformation("Downloading blob from: {BlobUrl}", document.FileUrl);
 
         // Download the file from blob storage and stream it to the client
         var fileStream = await blobStorage.DownloadFileAsync(document.FileUrl);
@@ -453,11 +459,18 @@ app.MapGet("/api/documents/{documentId}/file", async (Guid documentId, IDocument
             _ => "application/octet-stream"
         };
 
+        logger.LogInformation("Streaming file with content type: {ContentType}", contentType);
+
         return Results.Stream(fileStream, contentType, enableRangeProcessing: true);
     }
     catch (Exception ex)
     {
-        return Results.BadRequest(new { error = ex.Message });
+        logger.LogError(ex, "Error fetching document file: {DocumentId}", documentId);
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: 500,
+            title: "Failed to fetch document file"
+        );
     }
 })
 .RequireAuthorization()

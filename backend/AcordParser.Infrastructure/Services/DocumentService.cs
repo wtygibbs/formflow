@@ -237,10 +237,26 @@ public class DocumentService : IDocumentService
             ))
             .ToList();
 
+        // Generate SAS URL for temporary access to the blob (valid for 1 hour)
+        string? fileUrl = null;
+        if (!string.IsNullOrEmpty(document.BlobStorageUrl))
+        {
+            try
+            {
+                fileUrl = _blobStorage.GenerateSasUrl(document.BlobStorageUrl, expiryMinutes: 60);
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't fail the request
+                // The file preview just won't be available
+                Console.WriteLine($"Failed to generate SAS URL: {ex.Message}");
+            }
+        }
+
         return new DocumentDetailResponse(
             document.Id,
             document.FileName,
-            document.BlobStorageUrl,
+            fileUrl,
             document.Status,
             document.UploadedAt,
             document.ProcessedAt,
