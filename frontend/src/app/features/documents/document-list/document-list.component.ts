@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { BrnSelectImports } from '@spartan-ng/brain/select';
@@ -9,12 +9,14 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmPaginationImports } from '@spartan-ng/helm/pagination';
+import { HlmProgressImports } from '@spartan-ng/helm/progress';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
-import { debounceTime, Subject } from 'rxjs';
+import { debounceTime, Subject, Subscription } from 'rxjs';
 import { DocumentListItem, DocumentService, PaginatedResponse, PaginationRequest } from '../../../core/services/document.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { SignalRService, ProcessingProgress } from '../../../core/services/signalr.service';
 
 @Component({
   selector: 'app-document-list',
@@ -32,6 +34,7 @@ import { ToastService } from '../../../core/services/toast.service';
     ...HlmSelectImports,
     ...HlmSkeletonImports,
     ...HlmPaginationImports,
+    ...HlmProgressImports,
     ...BrnSelectImports
   ],
   template: `
@@ -219,12 +222,33 @@ import { ToastService } from '../../../core/services/toast.service';
                     }
                   }
                 </div>
+                <!-- Real-time Processing Progress -->
+                @if (doc.status === 1 && processingProgress()[doc.id]; as progress) {
+                  <div class="space-y-2 mb-3">
+                    <div class="flex justify-between text-xs">
+                      <span class="text-muted-foreground">{{ progress.currentStep }}</span>
+                      <span class="font-medium">{{ progress.percentComplete }}%</span>
+                    </div>
+                    <hlm-progress [value]="progress.percentComplete" class="h-2" />
+                    @if (progress.processedFields > 0) {
+                      <p class="text-xs text-muted-foreground">
+                        Fields: {{ progress.processedFields }}/{{ progress.totalFields }}
+                        @if (progress.estimatedSecondsRemaining) {
+                          • ETA: {{ progress.estimatedSecondsRemaining }}s
+                        }
+                      </p>
+                    }
+                  </div>
+                }
+
                 <div class="space-y-1 text-sm text-muted-foreground">
                   <p>Uploaded: {{ formatDate(doc.uploadedAt) }}</p>
                   @if (doc.processedAt) {
                     <p>Processed: {{ formatDate(doc.processedAt) }}</p>
                   }
-                  <p>Fields: {{ doc.extractedFieldsCount }}</p>
+                  @if (doc.status !== 1) {
+                    <p>Fields: {{ doc.extractedFieldsCount }}</p>
+                  }
                 </div>
                 <div class="flex gap-2 mt-4">
                   <a hlmBtn size="sm" class="flex-1" [routerLink]="['/documents', doc.id]">
@@ -285,15 +309,17 @@ import { ToastService } from '../../../core/services/toast.service';
   `,
   styles: []
 })
-export class DocumentListComponent implements OnInit {
+export class DocumentListComponent implements OnInit, OnDestroy {
   private documentService = inject(DocumentService);
   private toastService = inject(ToastService);
+  private signalRService = inject(SignalRService);
 
   // Data signals
   documents = signal<DocumentListItem[]>([]);
   paginationData = signal<PaginatedResponse<DocumentListItem> | null>(null);
   loading = signal(true);
   uploading = signal(false);
+  processingProgress = signal<Record<string, ProcessingProgress>>({});
 
   // Filter state
   searchQuery = '';
@@ -305,6 +331,7 @@ export class DocumentListComponent implements OnInit {
 
   // Search debounce
   private searchSubject = new Subject<string>();
+  private subscriptions: Subscription[] = [];
 
   // Expose Math for template
   Math = Math;
@@ -321,6 +348,42 @@ export class DocumentListComponent implements OnInit {
 
   ngOnInit() {
     this.loadDocuments();
+    this.setupSignalRSubscriptions();
+  }
+
+  ngOnDestroy() {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  private setupSignalRSubscriptions() {
+    // Subscribe to processing progress
+    const progressSub = this.signalRService.processingProgress$.subscribe(progress => {
+      const currentProgress = this.processingProgress();
+      this.processingProgress.set({
+        ...currentProgress,
+        [progress.documentId]: progress
+      });
+    });
+
+    // Subscribe to processing complete
+    const completeSub = this.signalRService.processingComplete$.subscribe(complete => {
+      // Remove from progress tracking
+      const currentProgress = this.processingProgress();
+      const { [complete.documentId]: removed, ...remaining } = currentProgress;
+      this.processingProgress.set(remaining);
+
+      // Show toast notification
+      if (complete.success) {
+        this.toastService.success('Document processed successfully!', 'All fields have been extracted');
+      } else {
+        this.toastService.error('Document processing failed', 'Please try uploading again');
+      }
+
+      // Reload documents to get updated status
+      this.loadDocuments();
+    });
+
+    this.subscriptions.push(progressSub, completeSub);
   }
 
   loadDocuments() {
