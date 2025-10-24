@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, Router } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
+import { ThemeService } from './core/services/theme.service';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 
 @Component({
@@ -16,6 +17,22 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
             ACORD Parser
           </h1>
           <nav class="flex items-center gap-2">
+            <!-- Theme Toggle -->
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              (click)="toggleTheme()"
+              [attr.aria-label]="themeService.isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
+              class="relative"
+            >
+              @if (themeService.isDark()) {
+                <span class="text-lg">☀️</span>
+              } @else {
+                <span class="text-lg">🌙</span>
+              }
+            </button>
+
             @if (authService.isAuthenticated()) {
               <a hlmBtn variant="ghost" size="sm" routerLink="/dashboard">Dashboard</a>
               <a hlmBtn variant="ghost" size="sm" routerLink="/documents">Documents</a>
@@ -46,7 +63,12 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 })
 export class AppComponent {
   authService = inject(AuthService);
+  themeService = inject(ThemeService);
   router = inject(Router);
+
+  toggleTheme() {
+    this.themeService.toggleTheme();
+  }
 
   logout() {
     this.authService.logout();
