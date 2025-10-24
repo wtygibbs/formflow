@@ -3,45 +3,61 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/services/document.service';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmBadgeImports } from '@spartan-ng/helm/badge';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
+import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
+import { HlmInputImports } from '@spartan-ng/helm/input';
 
 @Component({
   selector: 'app-document-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    ...HlmCardImports,
+    ...HlmButtonImports,
+    ...HlmBadgeImports,
+    ...HlmAlertImports,
+    ...HlmSpinnerImports,
+    ...HlmInputImports
+  ],
   template: `
     <div class="space-y-6">
       @if (loading()) {
         <div class="flex justify-center p-16">
-          <span class="loading loading-spinner loading-lg"></span>
+          <hlm-spinner />
         </div>
       } @else if (document(); as doc) {
         <!-- Header -->
         <div>
-          <a routerLink="/documents" class="link link-primary text-sm">
+          <a routerLink="/documents" class="text-sm text-primary hover:underline">
             ← Back to Documents
           </a>
         </div>
 
-        <div class="card bg-base-100 border border-base-300 shadow-sm">
-          <div class="card-body">
+        <div hlmCard>
+          <div hlmCardContent>
             <div class="flex justify-between items-start gap-4 flex-wrap">
               <div class="flex-1">
                 <h1 class="text-2xl font-semibold mb-3">{{ doc.fileName }}</h1>
-                <div class="flex flex-wrap gap-4 text-sm text-base-content/70">
+                <div class="flex flex-wrap gap-4 text-sm text-muted-foreground">
                   <div class="flex items-center gap-2">
                     <span class="font-medium">Status:</span>
                     @switch (doc.status) {
                       @case (0) {
-                        <div class="badge badge-neutral badge-sm">Uploaded</div>
+                        <span hlmBadge variant="secondary">Uploaded</span>
                       }
                       @case (1) {
-                        <div class="badge badge-warning badge-sm">Processing</div>
+                        <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
                       }
                       @case (2) {
-                        <div class="badge badge-success badge-sm">Completed</div>
+                        <span hlmBadge class="bg-green-600 text-white">Completed</span>
                       }
                       @case (3) {
-                        <div class="badge badge-error badge-sm">Failed</div>
+                        <span hlmBadge variant="destructive">Failed</span>
                       }
                     }
                   </div>
@@ -51,7 +67,7 @@ import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/s
                   }
                 </div>
               </div>
-              <button (click)="exportCsv()" class="btn btn-primary btn-sm" [disabled]="doc.status !== 2">
+              <button hlmBtn size="sm" (click)="exportCsv()" [disabled]="doc.status !== 2">
                 Export CSV
               </button>
             </div>
@@ -60,43 +76,43 @@ import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/s
 
         <!-- Alerts -->
         @if (doc.processingError) {
-          <div class="alert alert-error">
-            <div>
+          <div hlmAlert variant="destructive">
+            <p hlmAlertDescription>
               <strong>Processing Error:</strong> {{ doc.processingError }}
-            </div>
+            </p>
           </div>
         }
 
         @if (doc.status === 1) {
-          <div class="alert alert-info">
-            <span class="loading loading-spinner"></span>
-            <span>Document is currently being processed. This may take a few minutes...</span>
+          <div hlmAlert class="flex items-center gap-2">
+            <hlm-spinner class="size-4" />
+            <p hlmAlertDescription>Document is currently being processed. This may take a few minutes...</p>
           </div>
         }
 
         <!-- Extracted Fields -->
         @if (doc.extractedFields.length === 0) {
-          <div class="card bg-base-100 border border-base-300 shadow-sm">
-            <div class="card-body items-center text-center py-12">
-              <p class="text-base-content/70">No fields extracted yet.</p>
+          <div hlmCard>
+            <div hlmCardContent class="flex flex-col items-center text-center py-12">
+              <p class="text-muted-foreground">No fields extracted yet.</p>
             </div>
           </div>
         } @else {
-          <div class="card bg-base-100 border border-base-300 shadow-sm">
-            <div class="card-body">
+          <div hlmCard>
+            <div hlmCardContent>
               <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <h2 class="text-xl font-semibold">Extracted Fields ({{ doc.extractedFields.length }})</h2>
-                <div class="flex flex-wrap gap-3 text-xs text-base-content/70">
+                <div class="flex flex-wrap gap-3 text-xs text-muted-foreground">
                   <div class="flex items-center gap-1.5">
-                    <div class="w-2 h-2 rounded-full bg-success"></div>
+                    <div class="w-2 h-2 rounded-full bg-green-600"></div>
                     <span>High (>80%)</span>
                   </div>
                   <div class="flex items-center gap-1.5">
-                    <div class="w-2 h-2 rounded-full bg-warning"></div>
+                    <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
                     <span>Medium (60-80%)</span>
                   </div>
                   <div class="flex items-center gap-1.5">
-                    <div class="w-2 h-2 rounded-full bg-error"></div>
+                    <div class="w-2 h-2 rounded-full bg-red-600"></div>
                     <span>Low (<60%)</span>
                   </div>
                 </div>
@@ -104,27 +120,27 @@ import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/s
 
               <div class="space-y-3">
                 @for (field of doc.extractedFields; track field.id) {
-                  <div class="border border-base-300 rounded-lg p-4 hover:border-primary/50 transition-colors"
-                       [class.bg-success/5]="field.isVerified"
-                       [class.border-success/50]="field.isVerified">
+                  <div class="border rounded-lg p-4 hover:border-primary/50 transition-colors"
+                       [class.bg-green-600/5]="field.isVerified"
+                       [class.border-green-600/50]="field.isVerified">
                     <div class="flex justify-between items-start mb-2 gap-4">
                       <h3 class="font-medium">{{ field.fieldName }}</h3>
                       <div class="flex gap-1.5 items-center flex-wrap justify-end">
                         @switch (getConfidenceClass(field.confidence)) {
                           @case ('high') {
-                            <div class="badge badge-success badge-sm">{{ (field.confidence * 100).toFixed(0) }}%</div>
+                            <span hlmBadge class="bg-green-600 text-white">{{ (field.confidence * 100).toFixed(0) }}%</span>
                           }
                           @case ('medium') {
-                            <div class="badge badge-warning badge-sm">{{ (field.confidence * 100).toFixed(0) }}%</div>
+                            <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">{{ (field.confidence * 100).toFixed(0) }}%</span>
                           }
                           @case ('low') {
-                            <div class="badge badge-error badge-sm">{{ (field.confidence * 100).toFixed(0) }}%</div>
+                            <span hlmBadge variant="destructive">{{ (field.confidence * 100).toFixed(0) }}%</span>
                           }
                         }
                         @if (field.isVerified) {
-                          <div class="badge badge-success badge-sm">
+                          <span hlmBadge class="bg-green-600 text-white">
                             Verified
-                          </div>
+                          </span>
                         }
                       </div>
                     </div>
@@ -132,30 +148,31 @@ import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/s
                     @if (editingField() === field.id) {
                       <div class="space-y-2">
                         <input
+                          hlmInput
                           type="text"
                           [(ngModel)]="editValue"
-                          class="input input-bordered input-sm w-full"
+                          class="w-full"
                           placeholder="Enter corrected value"
                         />
                         <div class="flex gap-2">
-                          <button (click)="saveField(field)" class="btn btn-primary btn-xs">Save</button>
-                          <button (click)="cancelEdit()" class="btn btn-outline btn-xs">Cancel</button>
+                          <button hlmBtn size="sm" (click)="saveField(field)">Save</button>
+                          <button hlmBtn variant="outline" size="sm" (click)="cancelEdit()">Cancel</button>
                         </div>
                       </div>
                     } @else {
                       <div class="flex justify-between items-center gap-4">
                         <div class="flex-1">
-                          <div class="bg-base-200 rounded px-3 py-2">
+                          <div class="bg-muted rounded px-3 py-2">
                             <span class="font-mono text-sm">{{ field.editedValue || field.fieldValue }}</span>
                             @if (field.editedValue) {
-                              <span class="badge badge-info badge-xs ml-2">Edited</span>
+                              <span hlmBadge variant="secondary" class="ml-2 text-xs">Edited</span>
                             }
                           </div>
                         </div>
                         <div class="flex gap-2 flex-shrink-0">
-                          <button (click)="startEdit(field)" class="btn btn-outline btn-xs">Edit</button>
+                          <button hlmBtn variant="outline" size="sm" (click)="startEdit(field)">Edit</button>
                           @if (!field.isVerified) {
-                            <button (click)="verifyField(field)" class="btn btn-primary btn-xs">Verify</button>
+                            <button hlmBtn size="sm" (click)="verifyField(field)">Verify</button>
                           }
                         </div>
                       </div>

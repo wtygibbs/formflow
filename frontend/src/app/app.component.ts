@@ -2,29 +2,30 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, Router } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink],
+  imports: [CommonModule, RouterOutlet, RouterLink, ...HlmButtonImports],
   template: `
-    <div class="min-h-screen flex flex-col bg-base-200">
-      <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-50">
-        <div class="navbar-start">
+    <div class="min-h-screen flex flex-col bg-background">
+      <header class="bg-card border-b sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between max-w-7xl">
           <h1 class="text-xl font-semibold cursor-pointer hover:opacity-80 transition-opacity" routerLink="/">
             ACORD Parser
           </h1>
-        </div>
-        <div class="navbar-end gap-1">
-          @if (authService.isAuthenticated()) {
-            <a routerLink="/dashboard" class="btn btn-ghost btn-sm">Dashboard</a>
-            <a routerLink="/documents" class="btn btn-ghost btn-sm">Documents</a>
-            <a routerLink="/subscription" class="btn btn-ghost btn-sm">Subscription</a>
-            <button (click)="logout()" class="btn btn-outline btn-sm">Logout</button>
-          } @else {
-            <a routerLink="/login" class="btn btn-ghost btn-sm">Login</a>
-            <a routerLink="/register" class="btn btn-primary btn-sm">Sign Up</a>
-          }
+          <nav class="flex items-center gap-2">
+            @if (authService.isAuthenticated()) {
+              <a hlmBtn variant="ghost" size="sm" routerLink="/dashboard">Dashboard</a>
+              <a hlmBtn variant="ghost" size="sm" routerLink="/documents">Documents</a>
+              <a hlmBtn variant="ghost" size="sm" routerLink="/subscription">Subscription</a>
+              <button hlmBtn variant="outline" size="sm" (click)="logout()">Logout</button>
+            } @else {
+              <a hlmBtn variant="ghost" size="sm" routerLink="/login">Login</a>
+              <a hlmBtn size="sm" routerLink="/register">Sign Up</a>
+            }
+          </nav>
         </div>
       </header>
 
@@ -32,9 +33,9 @@ import { AuthService } from './core/services/auth.service';
         <router-outlet />
       </main>
 
-      <footer class="footer footer-center p-10 bg-base-100 border-t border-base-300 text-base-content">
-        <div>
-          <p class="text-sm">
+      <footer class="bg-card border-t">
+        <div class="container mx-auto px-4 py-10 text-center max-w-7xl">
+          <p class="text-sm text-muted-foreground">
             &copy; 2025 ACORD Parser. All rights reserved.
           </p>
         </div>

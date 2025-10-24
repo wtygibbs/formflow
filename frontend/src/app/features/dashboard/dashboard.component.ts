@@ -3,11 +3,24 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DocumentListItem, DocumentService } from '../../core/services/document.service';
 import { SubscriptionResponse, SubscriptionService } from '../../core/services/subscription.service';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmBadgeImports } from '@spartan-ng/helm/badge';
+import { HlmTableImports } from '@spartan-ng/helm/table';
+import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [
+    CommonModule,
+    RouterLink,
+    ...HlmCardImports,
+    ...HlmButtonImports,
+    ...HlmBadgeImports,
+    ...HlmTableImports,
+    ...HlmSpinnerImports
+  ],
   template: `
     <div class="space-y-8">
       <h1 class="text-3xl font-bold">Dashboard</h1>
@@ -15,33 +28,33 @@ import { SubscriptionResponse, SubscriptionService } from '../../core/services/s
       <!-- Stats Grid -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         @if (subscription(); as sub) {
-          <div class="stats border border-base-300 shadow-sm bg-base-100">
-            <div class="stat">
-              <div class="stat-title">Documents This Month</div>
-              <div class="stat-value text-primary">{{ sub.documentsProcessedThisMonth }} / {{ sub.documentLimit }}</div>
-              <div class="stat-desc">
+          <div hlmCard>
+            <div hlmCardContent class="pt-6">
+              <div class="text-sm text-muted-foreground">Documents This Month</div>
+              <div class="text-3xl font-bold text-primary mt-2">{{ sub.documentsProcessedThisMonth }} / {{ sub.documentLimit }}</div>
+              <div class="text-sm mt-2">
                 @if (sub.documentsProcessedThisMonth >= sub.documentLimit) {
-                  <span class="text-error">Limit reached</span>
+                  <span class="text-destructive">Limit reached</span>
                 } @else {
-                  <span class="text-success">{{ sub.documentLimit - sub.documentsProcessedThisMonth }} remaining</span>
+                  <span class="text-green-600">{{ sub.documentLimit - sub.documentsProcessedThisMonth }} remaining</span>
                 }
               </div>
             </div>
           </div>
 
-          <div class="stats border border-base-300 shadow-sm bg-base-100">
-            <div class="stat">
-              <div class="stat-title">Subscription Tier</div>
-              <div class="stat-value">{{ getTierName(sub.tier) }}</div>
-              <div class="stat-desc">Current plan</div>
+          <div hlmCard>
+            <div hlmCardContent class="pt-6">
+              <div class="text-sm text-muted-foreground">Subscription Tier</div>
+              <div class="text-3xl font-bold mt-2">{{ getTierName(sub.tier) }}</div>
+              <div class="text-sm text-muted-foreground mt-2">Current plan</div>
             </div>
           </div>
 
-          <div class="stats border border-base-300 shadow-sm bg-base-100">
-            <div class="stat">
-              <div class="stat-title">Total Documents</div>
-              <div class="stat-value">{{ recentDocuments().length }}</div>
-              <div class="stat-desc">All time</div>
+          <div hlmCard>
+            <div hlmCardContent class="pt-6">
+              <div class="text-sm text-muted-foreground">Total Documents</div>
+              <div class="text-3xl font-bold mt-2">{{ recentDocuments().length }}</div>
+              <div class="text-sm text-muted-foreground mt-2">All time</div>
             </div>
           </div>
         }
@@ -49,58 +62,58 @@ import { SubscriptionResponse, SubscriptionService } from '../../core/services/s
 
       <!-- Actions -->
       <div class="flex gap-4 flex-wrap">
-        <a routerLink="/documents" class="btn btn-primary">
+        <a hlmBtn routerLink="/documents">
           Upload New Document
         </a>
-        <a routerLink="/subscription" class="btn btn-outline">Manage Subscription</a>
+        <a hlmBtn variant="outline" routerLink="/subscription">Manage Subscription</a>
       </div>
 
       <!-- Recent Documents -->
-      <div class="card bg-base-100 border border-base-300 shadow-sm">
-        <div class="card-body">
+      <div hlmCard>
+        <div hlmCardContent>
           <h2 class="text-xl font-semibold mb-4">Recent Documents</h2>
           @if (loading()) {
             <div class="flex justify-center p-8">
-              <span class="loading loading-spinner loading-lg"></span>
+              <hlm-spinner />
             </div>
           } @else if (recentDocuments().length === 0) {
             <div class="text-center py-12">
-              <p class="text-base-content/70">No documents yet. Upload your first ACORD 125 form to get started!</p>
+              <p class="text-muted-foreground">No documents yet. Upload your first ACORD 125 form to get started!</p>
             </div>
           } @else {
-            <div class="overflow-x-auto">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>File Name</th>
-                    <th>Uploaded</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+            <div hlmTableContainer>
+              <table hlmTable>
+                <thead hlmTHead>
+                  <tr hlmTr>
+                    <th hlmTh>File Name</th>
+                    <th hlmTh>Uploaded</th>
+                    <th hlmTh>Status</th>
+                    <th hlmTh>Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody hlmTBody>
                   @for (doc of recentDocuments(); track doc.id) {
-                    <tr class="hover">
-                      <td class="font-medium">{{ doc.fileName }}</td>
-                      <td class="text-sm">{{ formatDate(doc.uploadedAt) }}</td>
-                      <td>
+                    <tr hlmTr>
+                      <td hlmTd class="font-medium">{{ doc.fileName }}</td>
+                      <td hlmTd class="text-sm">{{ formatDate(doc.uploadedAt) }}</td>
+                      <td hlmTd>
                         @switch (doc.status) {
                           @case (0) {
-                            <div class="badge badge-neutral badge-sm">Uploaded</div>
+                            <span hlmBadge variant="secondary">Uploaded</span>
                           }
                           @case (1) {
-                            <div class="badge badge-warning badge-sm">Processing</div>
+                            <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
                           }
                           @case (2) {
-                            <div class="badge badge-success badge-sm">Completed</div>
+                            <span hlmBadge class="bg-green-600 text-white">Completed</span>
                           }
                           @case (3) {
-                            <div class="badge badge-error badge-sm">Failed</div>
+                            <span hlmBadge variant="destructive">Failed</span>
                           }
                         }
                       </td>
-                      <td>
-                        <a [routerLink]="['/documents', doc.id]" class="btn btn-sm btn-primary">View</a>
+                      <td hlmTd>
+                        <a hlmBtn size="sm" [routerLink]="['/documents', doc.id]">View</a>
                       </td>
                     </tr>
                   }

@@ -3,31 +3,45 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { HlmFormFieldImports } from "@spartan-ng/helm/form-field";
-import { HlmInputImports } from '../../../../../libs/ui/ui-input-helm/src';
+import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
+import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, HlmFormFieldImports, HlmInputImports],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+    ...HlmFormFieldImports,
+    ...HlmInputImports,
+    ...HlmCardImports,
+    ...HlmButtonImports,
+    ...HlmAlertImports,
+    ...HlmSeparatorImports
+  ],
   template: `
     <div class="flex justify-center items-center min-h-[calc(100vh-300px)]">
-      <div class="card bg-base-100 border border-base-300 shadow-sm w-full max-w-md">
-        <div class="card-body">
-          <div class="text-center mb-6">
-            <h2 class="text-2xl font-semibold">Sign In</h2>
-            <p class="text-sm text-base-content/70 mt-2">Welcome back to ACORD Parser</p>
-          </div>
+      <div hlmCard class="w-full max-w-md">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle class="text-2xl text-center">Sign In</h2>
+          <p hlmCardDescription class="text-center">Welcome back to ACORD Parser</p>
+        </div>
 
+        <div hlmCardContent>
           @if (error()) {
-            <div class="alert alert-error mb-4">
-              <span>{{ error() }}</span>
+            <div hlmAlert variant="destructive" class="mb-4">
+              <p hlmAlertDescription>{{ error() }}</p>
             </div>
           }
 
           @if (success()) {
-            <div class="alert alert-success mb-4">
-              <span>{{ success() }}</span>
+            <div hlmAlert class="mb-4">
+              <p hlmAlertDescription>{{ success() }}</p>
             </div>
           }
 
@@ -42,16 +56,13 @@ import { AuthService } from '../../../core/services/auth.service';
                   name="email"
                   formControlName="email"
                   required
-                  email
                   placeholder="you@example.com"
                 />
-
-                <hlm-hint>This is your email address.</hlm-hint>
-			          <hlm-error>The email is required.</hlm-error>
+                <hlm-error>Email is required</hlm-error>
               </hlm-form-field>
 
-                            <hlm-form-field>
-                              <label hlmLabel for="password">Password</label>
+              <hlm-form-field>
+                <label hlmLabel for="password">Password</label>
                 <input
                   hlmInput
                   type="password"
@@ -59,47 +70,48 @@ import { AuthService } from '../../../core/services/auth.service';
                   name="password"
                   formControlName="password"
                   required
-                  placeholder="*********"
+                  placeholder="Enter your password"
                 />
-
-                <hlm-hint>This is your email address.</hlm-hint>
-			          <hlm-error>The email is required.</hlm-error>
+                <hlm-error>Password is required</hlm-error>
               </hlm-form-field>
             } @else {
-              <div class="form-control">
-                <label class="label" for="twoFactorCode">
-                  <span class="label-text">Two-Factor Authentication Code</span>
-                </label>
+              <hlm-form-field>
+                <label hlmLabel for="twoFactorCode">Two-Factor Authentication Code</label>
                 <input
+                  hlmInput
                   type="text"
                   id="twoFactorCode"
                   name="twoFactorCode"
+                  formControlName="twoFactorCode"
                   required
                   pattern="[0-9]{6}"
-                  class="input input-bordered w-full text-center text-2xl tracking-widest"
+                  class="text-center text-2xl tracking-widest"
                   placeholder="000000"
                   maxlength="6"
                 />
-                <label class="label">
-                  <span class="label-text-alt">Enter the 6-digit code from your authenticator app</span>
-                </label>
-              </div>
+                <hlm-hint>Enter the 6-digit code from your authenticator app</hlm-hint>
+                <hlm-error>Code is required</hlm-error>
+              </hlm-form-field>
             }
 
             <button
+              hlmBtn
               type="submit"
-              class="btn btn-primary w-full"
+              class="w-full"
               [disabled]="!form.valid || loading()"
             >
               {{ loading() ? 'Signing in...' : (twoFactorRequired() ? 'Verify Code' : 'Sign In') }}
             </button>
           </form>
 
-          <div class="divider text-xs">OR</div>
+          <div class="relative my-4">
+            <div hlmSeparator></div>
+            <span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">OR</span>
+          </div>
 
-          <p class="text-center text-sm text-base-content/70">
+          <p class="text-center text-sm text-muted-foreground">
             Don't have an account?
-            <a routerLink="/register" class="link link-primary">Sign up</a>
+            <a routerLink="/register" class="font-medium text-primary underline-offset-4 hover:underline">Sign up</a>
           </p>
         </div>
       </div>

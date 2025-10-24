@@ -3,98 +3,115 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
+import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
+import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmLabelImports } from '@spartan-ng/helm/label';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    ...HlmCardImports,
+    ...HlmButtonImports,
+    ...HlmAlertImports,
+    ...HlmSeparatorImports,
+    ...HlmInputImports,
+    ...HlmLabelImports
+  ],
   template: `
     <div class="flex justify-center items-center min-h-[calc(100vh-300px)]">
-      <div class="card bg-base-100 border border-base-300 shadow-sm w-full max-w-md">
-        <div class="card-body">
-          <div class="text-center mb-6">
-            <h2 class="text-2xl font-semibold">Create Account</h2>
-            <p class="text-sm text-base-content/70 mt-2">Start parsing ACORD forms with AI</p>
-          </div>
+      <div hlmCard class="w-full max-w-md">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle class="text-2xl text-center">Create Account</h2>
+          <p hlmCardDescription class="text-center">Start parsing ACORD forms with AI</p>
+        </div>
 
+        <div hlmCardContent>
           @if (error()) {
-            <div class="alert alert-error mb-4">
-              <span>{{ error() }}</span>
+            <div hlmAlert variant="destructive" class="mb-4">
+              <p hlmAlertDescription>{{ error() }}</p>
             </div>
           }
 
           @if (success()) {
-            <div class="alert alert-success mb-4">
-              <span>{{ success() }}</span>
+            <div hlmAlert class="mb-4">
+              <p hlmAlertDescription>{{ success() }}</p>
             </div>
           }
 
           <form (ngSubmit)="onSubmit()" #registerForm="ngForm" class="space-y-4">
-            <div class="form-control">
-              <label class="label" for="email">
-                <span class="label-text">Email</span>
-              </label>
+            <div class="space-y-2">
+              <label hlmLabel for="email">Email</label>
               <input
+                hlmInput
                 type="email"
                 id="email"
                 name="email"
                 [(ngModel)]="email"
                 required
                 email
-                class="input input-bordered w-full"
+                class="w-full"
                 placeholder="you@example.com"
               />
             </div>
 
-            <div class="form-control">
-              <label class="label" for="password">
-                <span class="label-text">Password</span>
-              </label>
+            <div class="space-y-2">
+              <label hlmLabel for="password">Password</label>
               <input
+                hlmInput
                 type="password"
                 id="password"
                 name="password"
                 [(ngModel)]="password"
                 required
                 minlength="8"
-                class="input input-bordered w-full"
+                class="w-full"
                 placeholder="Minimum 8 characters"
               />
-              <label class="label">
-                <span class="label-text-alt">Must be at least 8 characters with uppercase, lowercase, number, and special character</span>
-              </label>
+              <p class="text-xs text-muted-foreground">
+                Must be at least 8 characters with uppercase, lowercase, number, and special character
+              </p>
             </div>
 
-            <div class="form-control">
-              <label class="label" for="confirmPassword">
-                <span class="label-text">Confirm Password</span>
-              </label>
+            <div class="space-y-2">
+              <label hlmLabel for="confirmPassword">Confirm Password</label>
               <input
+                hlmInput
                 type="password"
                 id="confirmPassword"
                 name="confirmPassword"
                 [(ngModel)]="confirmPassword"
                 required
                 minlength="8"
-                class="input input-bordered w-full"
+                class="w-full"
                 placeholder="Re-enter your password"
               />
             </div>
 
             <button
+              hlmBtn
               type="submit"
-              class="btn btn-primary w-full"
+              class="w-full"
               [disabled]="!registerForm.valid || loading()"
             >
               {{ loading() ? 'Creating account...' : 'Sign Up' }}
             </button>
           </form>
 
-          <div class="divider text-xs">OR</div>
+          <div class="relative my-4">
+            <div hlmSeparator></div>
+            <span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">OR</span>
+          </div>
 
-          <p class="text-center text-sm text-base-content/70">
+          <p class="text-center text-sm text-muted-foreground">
             Already have an account?
-            <a routerLink="/login" class="link link-primary">Sign in</a>
+            <a routerLink="/login" class="font-medium text-primary underline-offset-4 hover:underline">Sign in</a>
           </p>
         </div>
       </div>
