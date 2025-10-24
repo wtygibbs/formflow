@@ -52,8 +52,11 @@ export class SignalRService {
     }
 
     try {
+      // Get base URL by removing '/api' suffix from apiUrl
+      const baseUrl = environment.apiUrl.replace('/api', '');
+
       this.hubConnection = new signalR.HubConnectionBuilder()
-        .withUrl(`${environment.apiUrl}/hubs/document-processing`, {
+        .withUrl(`${baseUrl}/hubs/document-processing`, {
           accessTokenFactory: () => token,
           skipNegotiation: false,
           transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents | signalR.HttpTransportType.LongPolling
