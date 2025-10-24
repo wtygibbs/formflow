@@ -18,7 +18,13 @@ public record LoginResponse(
     string Token,
     string Email,
     SubscriptionTier SubscriptionTier,
-    bool TwoFactorRequired = false
+    bool TwoFactorRequired = false,
+    string? RefreshToken = null
+);
+
+public record RefreshTokenResponse(
+    string Token,
+    string RefreshToken
 );
 
 public record Enable2FARequest(
@@ -32,4 +38,20 @@ public record Enable2FAResponse(
 
 public record Verify2FARequest(
     string Code
+);
+
+public record ForgotPasswordRequest(
+    string Email
+);
+
+public record ResetPasswordRequest(
+    string Token,
+    string NewPassword,
+    string ConfirmPassword
+);
+
+public record ChangePasswordRequest(
+    string CurrentPassword,
+    string NewPassword,
+    string ConfirmPassword
 );

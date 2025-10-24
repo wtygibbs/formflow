@@ -74,6 +74,12 @@ import { AuthService } from '../../../core/services/auth.service';
                 />
                 <hlm-error>Password is required</hlm-error>
               </hlm-form-field>
+
+              <div class="text-right">
+                <a routerLink="/forgot-password" class="text-sm text-primary hover:underline">
+                  Forgot password?
+                </a>
+              </div>
             } @else {
               <hlm-form-field>
                 <label hlmLabel for="twoFactorCode">Two-Factor Authentication Code</label>

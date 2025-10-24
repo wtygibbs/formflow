@@ -62,6 +62,19 @@ export class AuthService {
     return localStorage.getItem(this.TOKEN_KEY);
   }
 
+  setTokenFromRefresh(token: string): void {
+    this.setToken(token);
+    this.isAuthenticated.set(true);
+  }
+
+  refreshToken(): Observable<{ token: string }> {
+    return this.http.post<{ token: string }>(
+      `${environment.apiUrl}/auth/refresh`,
+      {},
+      { withCredentials: true } // Include httpOnly cookie
+    );
+  }
+
   private setToken(token: string): void {
     localStorage.setItem(this.TOKEN_KEY, token);
   }
@@ -89,5 +102,26 @@ export class AuthService {
       `${environment.apiUrl}/auth/2fa/disable`,
       { password }
     );
+  }
+
+  forgotPassword(email: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${environment.apiUrl}/auth/forgot-password`,
+      { email }
+    ).toPromise() as Promise<{ message: string }>;
+  }
+
+  resetPassword(token: string, newPassword: string, confirmPassword: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${environment.apiUrl}/auth/reset-password`,
+      { token, newPassword, confirmPassword }
+    ).toPromise() as Promise<{ message: string }>;
+  }
+
+  changePassword(currentPassword: string, newPassword: string, confirmPassword: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${environment.apiUrl}/auth/change-password`,
+      { currentPassword, newPassword, confirmPassword }
+    ).toPromise() as Promise<{ message: string }>;
   }
 }
