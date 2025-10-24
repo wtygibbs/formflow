@@ -10,30 +10,25 @@ import { LayoutService } from '../../services/layout.service';
   standalone: true,
   imports: [CommonModule, RouterOutlet, NavbarComponent, SidenavComponent],
   template: `
-    <div class="min-h-screen flex flex-col bg-background">
-      <!-- Navbar -->
-      <app-navbar />
+    <div class="flex h-screen overflow-hidden bg-background">
+      <!-- Sidenav - fixed height, scrollable content -->
+      <app-sidenav class="flex-shrink-0" />
 
-      <!-- Main content area with sidenav -->
-      <div class="flex-1 flex overflow-hidden">
-        <!-- Sidenav -->
-        <app-sidenav />
+      <!-- Main content area -->
+      <div class="flex flex-col flex-1 overflow-hidden">
+        <!-- Navbar - fixed at top -->
+        <app-navbar class="flex-shrink-0" />
 
-        <!-- Page content -->
-        <main class="flex-1 overflow-y-auto">
-          <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Page content - scrollable -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+          <div class="container mx-auto max-w-7xl">
             <router-outlet />
           </div>
         </main>
       </div>
     </div>
   `,
-  styles: [`
-    :host {
-      display: block;
-      height: 100vh;
-    }
-  `]
+  styles: []
 })
 export class MainLayoutComponent {
   layoutService = inject(LayoutService);

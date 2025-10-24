@@ -12,9 +12,12 @@ public class User : IdentityUser
     public int DocumentsProcessedThisMonth { get; set; }
     public bool TwoFactorEnabled { get; set; }
     public string? TwoFactorSecret { get; set; }
+    public string? ProfilePictureUrl { get; set; }
+    public string? DisplayName { get; set; }
 
     // Navigation properties
     public ICollection<Document> Documents { get; set; } = new List<Document>();
+    public UserPreferences? Preferences { get; set; }
 }
 
 public enum SubscriptionTier

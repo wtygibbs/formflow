@@ -1,10 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { AuthService } from '../../core/services/auth.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { ToastService } from '../../core/services/toast.service';
+import { environment } from '../../../environments/environment';
 
 type SettingsTab = 'account' | 'security' | 'preferences';
 
@@ -234,14 +236,14 @@ type SettingsTab = 'account' | 'security' | 'preferences';
                   <button
                     hlmBtn
                     [variant]="!themeService.isDark() ? 'default' : 'outline'"
-                    (click)="themeService.setTheme('light')"
+                    (click)="updateTheme('light')"
                   >
                     ☀️ Light
                   </button>
                   <button
                     hlmBtn
                     [variant]="themeService.isDark() ? 'default' : 'outline'"
-                    (click)="themeService.setTheme('dark')"
+                    (click)="updateTheme('dark')"
                   >
                     🌙 Dark
                   </button>
@@ -259,6 +261,7 @@ export class SettingsComponent {
   authService = inject(AuthService);
   themeService = inject(ThemeService);
   toastService = inject(ToastService);
+  http = inject(HttpClient);
 
   activeTab = signal<SettingsTab>('account');
 
@@ -341,5 +344,21 @@ export class SettingsComponent {
     this.twoFactorCode = '';
     this.twoFactorPassword = '';
     this.twoFactorError.set(null);
+  }
+
+  async updateTheme(theme: 'light' | 'dark') {
+    // Update local theme
+    this.themeService.setTheme(theme);
+
+    // Save to backend
+    try {
+      await this.http.put(`${environment.apiUrl}/user/preferences`, {
+        theme
+      }).toPromise();
+      this.toastService.success('Theme preference saved');
+    } catch (err) {
+      console.error('Failed to save theme preference:', err);
+      // Don't show error to user, local theme still works
+    }
   }
 }

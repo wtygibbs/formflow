@@ -16,6 +16,7 @@ public class ApplicationDbContext : IdentityDbContext<User>
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<UserPreferences> UserPreferences => Set<UserPreferences>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -112,6 +113,25 @@ public class ApplicationDbContext : IdentityDbContext<User>
             entity.HasIndex(e => e.Token).IsUnique();
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.ExpiresAt);
+        });
+
+        // UserPreferences configuration
+        modelBuilder.Entity<UserPreferences>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.Theme).HasDefaultValue("light");
+            entity.Property(e => e.EmailNotifications).HasDefaultValue(true);
+            entity.Property(e => e.DocumentProcessingNotifications).HasDefaultValue(true);
+            entity.Property(e => e.DefaultExportFormat).HasDefaultValue("csv");
+
+            entity.HasOne(p => p.User)
+                .WithOne(u => u.Preferences)
+                .HasForeignKey<UserPreferences>(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.UserId).IsUnique();
         });
     }
 }

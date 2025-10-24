@@ -17,19 +17,22 @@ export interface NavItem {
   imports: [CommonModule, RouterLink, RouterLinkActive],
   template: `
     <aside
-      class="h-full bg-card border-r transition-all duration-300 ease-in-out flex flex-col"
+      class="h-screen bg-card border-r transition-all duration-300 ease-in-out flex flex-col overflow-hidden"
       [class.w-64]="layoutService.isExpanded()"
-      [class.w-16]="layoutService.isCollapsed()"
+      [class.w-20]="layoutService.isCollapsed()"
     >
       <!-- Sidenav Header -->
-      <div class="h-16 flex items-center justify-between px-4 border-b">
+      <div class="h-16 flex items-center border-b flex-shrink-0"
+           [class.justify-between]="layoutService.isExpanded()"
+           [class.justify-center]="layoutService.isCollapsed()"
+           [class.px-4]="layoutService.isExpanded()"
+           [class.px-2]="layoutService.isCollapsed()">
         @if (layoutService.isExpanded()) {
           <h2 class="font-semibold text-sm">Navigation</h2>
         }
         <button
           (click)="layoutService.toggleSidenav()"
-          class="p-2 rounded-lg hover:bg-accent transition-colors"
-          [class.mx-auto]="layoutService.isCollapsed()"
+          class="p-2 rounded-lg hover:bg-accent transition-colors flex-shrink-0"
           [attr.aria-label]="layoutService.isExpanded() ? 'Collapse sidebar' : 'Expand sidebar'"
         >
           @if (layoutService.isExpanded()) {
@@ -46,14 +49,21 @@ export interface NavItem {
 
       <!-- Navigation Items -->
       <nav class="flex-1 overflow-y-auto py-4">
-        <ul class="space-y-1 px-2">
+        <ul class="space-y-1"
+            [class.px-3]="layoutService.isExpanded()"
+            [class.px-2]="layoutService.isCollapsed()">
           @for (item of navItems; track item.route) {
             <li>
               <a
                 [routerLink]="item.route"
                 routerLinkActive="bg-primary text-primary-foreground"
                 [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent transition-colors group relative"
+                class="flex items-center rounded-lg hover:bg-accent transition-colors group relative"
+                [class.gap-3]="layoutService.isExpanded()"
+                [class.px-3]="layoutService.isExpanded()"
+                [class.py-2.5]="layoutService.isExpanded()"
+                [class.justify-center]="layoutService.isCollapsed()"
+                [class.p-3]="layoutService.isCollapsed()"
                 [attr.aria-label]="item.label"
               >
                 <!-- Icon -->
@@ -84,10 +94,16 @@ export interface NavItem {
       </nav>
 
       <!-- User Section -->
-      <div class="border-t p-2">
+      <div class="border-t flex-shrink-0"
+           [class.p-3]="layoutService.isExpanded()"
+           [class.p-2]="layoutService.isCollapsed()">
         <div
-          class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent transition-colors cursor-pointer"
+          class="flex items-center rounded-lg hover:bg-accent transition-colors cursor-pointer"
+          [class.gap-3]="layoutService.isExpanded()"
+          [class.px-3]="layoutService.isExpanded()"
+          [class.py-2.5]="layoutService.isExpanded()"
           [class.justify-center]="layoutService.isCollapsed()"
+          [class.p-3]="layoutService.isCollapsed()"
         >
           <!-- User Avatar -->
           <div class="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 text-sm font-semibold">
@@ -105,12 +121,7 @@ export interface NavItem {
       </div>
     </aside>
   `,
-  styles: [`
-    :host {
-      display: block;
-      height: 100%;
-    }
-  `]
+  styles: []
 })
 export class SidenavComponent {
   layoutService = inject(LayoutService);

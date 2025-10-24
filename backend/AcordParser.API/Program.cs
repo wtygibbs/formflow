@@ -409,7 +409,7 @@ app.MapPost("/api/auth/revoke", async (IAuthService authService, HttpContext htt
 
 // ==================== USER ENDPOINTS ====================
 
-app.MapGet("/api/user/profile", async (UserManager<User> userManager, ClaimsPrincipal claimsPrincipal) =>
+app.MapGet("/api/user/profile", async (UserManager<User> userManager, ApplicationDbContext context, ClaimsPrincipal claimsPrincipal) =>
 {
     var userId = GetUserId(claimsPrincipal);
     var user = await userManager.FindByIdAsync(userId);
@@ -419,18 +419,120 @@ app.MapGet("/api/user/profile", async (UserManager<User> userManager, ClaimsPrin
         return Results.NotFound();
     }
 
+    // Get or create user preferences
+    var preferences = await context.UserPreferences.FirstOrDefaultAsync(p => p.UserId == userId);
+    if (preferences == null)
+    {
+        preferences = new UserPreferences { UserId = userId };
+        context.UserPreferences.Add(preferences);
+        await context.SaveChangesAsync();
+    }
+
     return Results.Ok(new
     {
         email = user.Email,
+        displayName = user.DisplayName,
+        profilePictureUrl = user.ProfilePictureUrl,
         createdAt = user.CreatedAt,
         lastLoginAt = user.LastLoginAt,
         subscriptionTier = user.SubscriptionTier.ToString(),
         documentsProcessedThisMonth = user.DocumentsProcessedThisMonth,
-        twoFactorEnabled = user.TwoFactorEnabled
+        twoFactorEnabled = user.TwoFactorEnabled,
+        preferences = new
+        {
+            theme = preferences.Theme,
+            emailNotifications = preferences.EmailNotifications,
+            documentProcessingNotifications = preferences.DocumentProcessingNotifications,
+            defaultExportFormat = preferences.DefaultExportFormat
+        }
     });
 })
 .RequireAuthorization()
 .WithName("GetUserProfile")
+.WithTags("User");
+
+app.MapPut("/api/user/profile", async (UpdateProfileRequest request, UserManager<User> userManager, ClaimsPrincipal claimsPrincipal) =>
+{
+    var userId = GetUserId(claimsPrincipal);
+    var user = await userManager.FindByIdAsync(userId);
+
+    if (user == null)
+    {
+        return Results.NotFound();
+    }
+
+    if (request.DisplayName != null)
+    {
+        user.DisplayName = request.DisplayName;
+    }
+
+    if (request.ProfilePictureUrl != null)
+    {
+        user.ProfilePictureUrl = request.ProfilePictureUrl;
+    }
+
+    var result = await userManager.UpdateAsync(user);
+    if (!result.Succeeded)
+    {
+        return Results.BadRequest(new { error = "Failed to update profile" });
+    }
+
+    return Results.Ok(new { message = "Profile updated successfully" });
+})
+.RequireAuthorization()
+.WithName("UpdateUserProfile")
+.WithTags("User");
+
+app.MapPut("/api/user/preferences", async (UpdatePreferencesRequest request, ApplicationDbContext context, ClaimsPrincipal claimsPrincipal) =>
+{
+    var userId = GetUserId(claimsPrincipal);
+
+    // Get or create user preferences
+    var preferences = await context.UserPreferences.FirstOrDefaultAsync(p => p.UserId == userId);
+    if (preferences == null)
+    {
+        preferences = new UserPreferences { UserId = userId };
+        context.UserPreferences.Add(preferences);
+    }
+
+    // Update only the provided fields
+    if (request.Theme != null)
+    {
+        preferences.Theme = request.Theme;
+    }
+
+    if (request.EmailNotifications.HasValue)
+    {
+        preferences.EmailNotifications = request.EmailNotifications.Value;
+    }
+
+    if (request.DocumentProcessingNotifications.HasValue)
+    {
+        preferences.DocumentProcessingNotifications = request.DocumentProcessingNotifications.Value;
+    }
+
+    if (request.DefaultExportFormat != null)
+    {
+        preferences.DefaultExportFormat = request.DefaultExportFormat;
+    }
+
+    preferences.UpdatedAt = DateTime.UtcNow;
+    await context.SaveChangesAsync();
+
+    return Results.Ok(new
+    {
+        message = "Preferences updated successfully",
+        preferences = new
+        {
+            theme = preferences.Theme,
+            emailNotifications = preferences.EmailNotifications,
+            documentProcessingNotifications = preferences.DocumentProcessingNotifications,
+            defaultExportFormat = preferences.DefaultExportFormat
+        }
+    });
+})
+.RequireAuthorization()
+.WithName("UpdateUserPreferences")
 .WithTags("User");
 
 // ==================== DOCUMENT ENDPOINTS ====================

@@ -8,11 +8,19 @@ import { environment } from '../../../environments/environment';
 
 interface UserProfile {
   email: string;
+  displayName: string | null;
+  profilePictureUrl: string | null;
   createdAt: string;
   lastLoginAt: string | null;
   subscriptionTier: string;
   documentsProcessedThisMonth: number;
   twoFactorEnabled: boolean;
+  preferences: {
+    theme: string;
+    emailNotifications: boolean;
+    documentProcessingNotifications: boolean;
+    defaultExportFormat: string;
+  };
 }
 
 @Component({
