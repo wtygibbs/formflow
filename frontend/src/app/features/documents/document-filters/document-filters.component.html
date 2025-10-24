@@ -1,0 +1,99 @@
+<div hlmCard>
+  <div hlmCardContent class="space-y-4">
+    <!-- Search Bar -->
+    <div class="flex flex-col sm:flex-row gap-4">
+      <div class="flex-1">
+        <input
+          hlmInput
+          type="text"
+          placeholder="Search by file name..."
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange($event)"
+          class="w-full"
+        />
+      </div>
+    </div>
+
+    <!-- Filters Row -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Status Filter -->
+      <div>
+        <label class="text-sm font-medium mb-1.5 block">Status</label>
+        <brn-select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()" placeholder="All Statuses">
+          <hlm-select-trigger class="w-full">
+            <hlm-select-value />
+          </hlm-select-trigger>
+          <hlm-select-content>
+            <hlm-option value="">All Statuses</hlm-option>
+            <hlm-option value="Uploaded">Uploaded</hlm-option>
+            <hlm-option value="Processing">Processing</hlm-option>
+            <hlm-option value="Completed">Completed</hlm-option>
+            <hlm-option value="Failed">Failed</hlm-option>
+          </hlm-select-content>
+        </brn-select>
+      </div>
+
+      <!-- Sort By -->
+      <div>
+        <label class="text-sm font-medium mb-1.5 block">Sort By</label>
+        <brn-select [(ngModel)]="sortBy" (ngModelChange)="onFilterChange()" placeholder="Sort by">
+          <hlm-select-trigger class="w-full">
+            <hlm-select-value />
+          </hlm-select-trigger>
+          <hlm-select-content>
+            <hlm-option value="UploadedAt">Upload Date</hlm-option>
+            <hlm-option value="FileName">File Name</hlm-option>
+            <hlm-option value="Status">Status</hlm-option>
+            <hlm-option value="ProcessedAt">Processed Date</hlm-option>
+          </hlm-select-content>
+        </brn-select>
+      </div>
+
+      <!-- Sort Order -->
+      <div>
+        <label class="text-sm font-medium mb-1.5 block">Order</label>
+        <brn-select [(ngModel)]="sortOrder" (ngModelChange)="onFilterChange()" placeholder="Order">
+          <hlm-select-trigger class="w-full">
+            <hlm-select-value />
+          </hlm-select-trigger>
+          <hlm-select-content>
+            <hlm-option value="desc">Newest First</hlm-option>
+            <hlm-option value="asc">Oldest First</hlm-option>
+          </hlm-select-content>
+        </brn-select>
+      </div>
+
+      <!-- Page Size -->
+      <div>
+        <label class="text-sm font-medium mb-1.5 block">Per Page</label>
+        <brn-select [(ngModel)]="pageSize" (ngModelChange)="onPageSizeChange()" placeholder="Page size">
+          <hlm-select-trigger class="w-full">
+            <hlm-select-value />
+          </hlm-select-trigger>
+          <hlm-select-content>
+            <hlm-option value="10">10</hlm-option>
+            <hlm-option value="25">25</hlm-option>
+            <hlm-option value="50">50</hlm-option>
+            <hlm-option value="100">100</hlm-option>
+          </hlm-select-content>
+        </brn-select>
+      </div>
+    </div>
+
+    <!-- Results Summary -->
+    @if (!loading() && paginationData()) {
+      <div class="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
+        <span>
+          Showing {{ ((paginationData()!.page - 1) * paginationData()!.pageSize) + 1 }} to
+          {{ Math.min(paginationData()!.page * paginationData()!.pageSize, paginationData()!.totalCount) }}
+          of {{ paginationData()!.totalCount }} documents
+        </span>
+        @if (hasActiveFilters()) {
+          <button hlmBtn variant="ghost" size="sm" (click)="onClearFilters()">
+            Clear Filters
+          </button>
+        }
+      </div>
+    }
+  </div>
+</div>

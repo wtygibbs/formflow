@@ -1,0 +1,70 @@
+<div class="border rounded-lg p-4 hover:border-primary/50 transition-colors"
+     [class.bg-green-600/5]="field().isVerified"
+     [class.border-green-600/50]="field().isVerified">
+  <div class="flex justify-between items-start mb-2 gap-4">
+    <h3 class="font-medium">{{ field().fieldName }}</h3>
+    <div class="flex gap-1.5 items-center flex-wrap justify-end">
+      @switch (getConfidenceClass(field().confidence)) {
+        @case ('high') {
+          <span hlmBadge class="bg-green-600 text-white">{{ (field().confidence * 100).toFixed(0) }}%</span>
+        }
+        @case ('medium') {
+          <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">{{ (field().confidence * 100).toFixed(0) }}%</span>
+        }
+        @case ('low') {
+          <span hlmBadge variant="destructive">{{ (field().confidence * 100).toFixed(0) }}%</span>
+        }
+      }
+      @if (field().isVerified) {
+        <span hlmBadge class="bg-green-600 text-white">
+          Verified
+        </span>
+      }
+    </div>
+  </div>
+
+  @if (isEditing()) {
+    <div class="space-y-2">
+      <input
+        hlmInput
+        type="text"
+        [(ngModel)]="editValue"
+        class="w-full"
+        placeholder="Enter corrected value"
+      />
+      <div class="flex gap-2">
+        <button hlmBtn size="sm" (click)="onSave()">Save</button>
+        <button hlmBtn variant="outline" size="sm" (click)="onCancel()">Cancel</button>
+      </div>
+    </div>
+  } @else {
+    <div class="flex justify-between items-center gap-4">
+      <div class="flex-1">
+        <div class="bg-muted rounded px-3 py-2 flex items-center justify-between group">
+          <span class="font-mono text-sm">{{ field().editedValue || field().fieldValue }}</span>
+          <div class="flex items-center gap-2">
+            @if (field().editedValue) {
+              <span hlmBadge variant="secondary" class="text-xs">Edited</span>
+            }
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              class="h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              (click)="onCopy()"
+              title="Copy to clipboard"
+            >
+              📋
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2 flex-shrink-0">
+        <button hlmBtn variant="outline" size="sm" (click)="onEdit()">Edit</button>
+        @if (!field().isVerified) {
+          <button hlmBtn size="sm" (click)="onVerify()">Verify</button>
+        }
+      </div>
+    </div>
+  }
+</div>

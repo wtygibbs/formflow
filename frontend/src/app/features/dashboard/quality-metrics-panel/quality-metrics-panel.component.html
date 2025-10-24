@@ -1,0 +1,33 @@
+<div hlmCard>
+  <div hlmCardContent>
+    <h2 class="text-xl font-semibold mb-4">Quality Metrics</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div class="text-center">
+        <div class="text-sm text-muted-foreground mb-2">Avg Confidence</div>
+        <div class="text-3xl font-bold" [class]="confidenceColorClass()">
+          {{ metrics().averageConfidence }}%
+        </div>
+      </div>
+      <div class="text-center">
+        <div class="text-sm text-muted-foreground mb-2">High Confidence</div>
+        <div class="text-3xl font-bold text-green-600">{{ metrics().highConfidenceFields }}</div>
+        <div class="text-xs text-muted-foreground mt-1">&gt;80%</div>
+      </div>
+      <div class="text-center">
+        <div class="text-sm text-muted-foreground mb-2">Medium Confidence</div>
+        <div class="text-3xl font-bold text-yellow-600">{{ metrics().mediumConfidenceFields }}</div>
+        <div class="text-xs text-muted-foreground mt-1">60-80%</div>
+      </div>
+      <div class="text-center">
+        <div class="text-sm text-muted-foreground mb-2">Low Confidence</div>
+        <div class="text-3xl font-bold text-red-600">{{ metrics().lowConfidenceFields }}</div>
+        <div class="text-xs text-muted-foreground mt-1">&lt;60%</div>
+      </div>
+      <div class="text-center">
+        <div class="text-sm text-muted-foreground mb-2">Verification Rate</div>
+        <div class="text-3xl font-bold text-primary">{{ metrics().verificationRate }}%</div>
+        <div class="text-xs text-muted-foreground mt-1">{{ metrics().verifiedFields }} verified</div>
+      </div>
+    </div>
+  </div>
+</div>

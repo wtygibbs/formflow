@@ -1,332 +1,142 @@
-import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map, switchMap } from 'rxjs';
 import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/services/document.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { SignalRService, ProcessingProgress } from '../../../core/services/signalr.service';
+import { SignalRService } from '../../../core/services/signalr.service';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
-import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
-import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
-import { HlmProgressImports } from '@spartan-ng/helm/progress';
+import { ExtractedFieldItemComponent } from '../extracted-field-item/extracted-field-item.component';
+import { DocumentProcessingStatusComponent } from '../document-processing-status/document-processing-status.component';
 
 @Component({
   selector: 'app-document-detail',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     RouterLink,
+    ExtractedFieldItemComponent,
+    DocumentProcessingStatusComponent,
     ...HlmCardImports,
     ...HlmButtonImports,
     ...HlmBadgeImports,
     ...HlmAlertImports,
-    ...HlmSpinnerImports,
-    ...HlmInputImports,
-    ...HlmSkeletonImports,
-    ...HlmProgressImports
+    ...HlmSkeletonImports
   ],
-  template: `
-    <div class="space-y-6">
-      @if (loading()) {
-        <!-- Skeleton Loading State -->
-        <div>
-          <hlm-skeleton class="h-4 w-32 mb-4" />
-        </div>
-        <div hlmCard>
-          <div hlmCardContent class="space-y-4">
-            <div class="flex justify-between items-start">
-              <div class="flex-1 space-y-3">
-                <hlm-skeleton class="h-8 w-3/4" />
-                <div class="flex gap-4">
-                  <hlm-skeleton class="h-5 w-24" />
-                  <hlm-skeleton class="h-5 w-32" />
-                  <hlm-skeleton class="h-5 w-28" />
-                </div>
-              </div>
-              <hlm-skeleton class="h-9 w-28" />
-            </div>
-          </div>
-        </div>
-        <div hlmCard>
-          <div hlmCardContent class="space-y-4">
-            @for (i of [1,2,3,4,5]; track i) {
-              <div class="space-y-2 border-b pb-4">
-                <hlm-skeleton class="h-5 w-48" />
-                <hlm-skeleton class="h-6 w-full" />
-                <div class="flex gap-2">
-                  <hlm-skeleton class="h-4 w-20" />
-                  <hlm-skeleton class="h-4 w-16" />
-                </div>
-              </div>
-            }
-          </div>
-        </div>
-      } @else if (document(); as doc) {
-        <!-- Header -->
-        <div>
-          <a routerLink="/documents" class="text-sm text-primary hover:underline">
-            ← Back to Documents
-          </a>
-        </div>
-
-        <div hlmCard>
-          <div hlmCardContent>
-            <div class="flex justify-between items-start gap-4 flex-wrap">
-              <div class="flex-1">
-                <h1 class="text-2xl font-semibold mb-3">{{ doc.fileName }}</h1>
-                <div class="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                  <div class="flex items-center gap-2">
-                    <span class="font-medium">Status:</span>
-                    @switch (doc.status) {
-                      @case (0) {
-                        <span hlmBadge variant="secondary">Uploaded</span>
-                      }
-                      @case (1) {
-                        <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
-                      }
-                      @case (2) {
-                        <span hlmBadge class="bg-green-600 text-white">Completed</span>
-                      }
-                      @case (3) {
-                        <span hlmBadge variant="destructive">Failed</span>
-                      }
-                    }
-                  </div>
-                  <span>Uploaded: {{ formatDate(doc.uploadedAt) }}</span>
-                  @if (doc.processedAt) {
-                    <span>Processed: {{ formatDate(doc.processedAt) }}</span>
-                  }
-                </div>
-              </div>
-              <button hlmBtn size="sm" (click)="exportCsv()" [disabled]="doc.status !== 2">
-                Export CSV
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Alerts -->
-        @if (doc.processingError) {
-          <div hlmAlert variant="destructive">
-            <p hlmAlertDescription>
-              <strong>Processing Error:</strong> {{ doc.processingError }}
-            </p>
-          </div>
-        }
-
-        @if (doc.status === 1) {
-          @if (processingProgress(); as progress) {
-            <div hlmCard>
-              <div hlmCardContent class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-lg font-semibold">Processing Document...</h3>
-                  <span class="text-2xl font-bold text-primary">{{ progress.percentComplete }}%</span>
-                </div>
-                <hlm-progress [value]="progress.percentComplete" class="h-3" />
-                <div class="flex justify-between items-center text-sm">
-                  <span class="text-muted-foreground">{{ progress.currentStep }}</span>
-                  @if (progress.estimatedSecondsRemaining) {
-                    <span class="text-muted-foreground">ETA: {{ progress.estimatedSecondsRemaining }}s</span>
-                  }
-                </div>
-                @if (progress.processedFields > 0) {
-                  <div class="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>Extracting fields:</span>
-                    <span class="font-medium text-foreground">{{ progress.processedFields }} / {{ progress.totalFields }}</span>
-                  </div>
-                }
-              </div>
-            </div>
-          } @else {
-            <div hlmAlert class="flex items-center gap-2">
-              <hlm-spinner class="size-4" />
-              <p hlmAlertDescription>Document is currently being processed. This may take a few minutes...</p>
-            </div>
-          }
-        }
-
-        <!-- Extracted Fields -->
-        @if (doc.extractedFields.length === 0) {
-          <div hlmCard>
-            <div hlmCardContent class="flex flex-col items-center text-center py-12">
-              <p class="text-muted-foreground">No fields extracted yet.</p>
-            </div>
-          </div>
-        } @else {
-          <div hlmCard>
-            <div hlmCardContent>
-              <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
-                <h2 class="text-xl font-semibold">Extracted Fields ({{ doc.extractedFields.length }})</h2>
-                <div class="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                  <div class="flex items-center gap-1.5">
-                    <div class="w-2 h-2 rounded-full bg-green-600"></div>
-                    <span>High (>80%)</span>
-                  </div>
-                  <div class="flex items-center gap-1.5">
-                    <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
-                    <span>Medium (60-80%)</span>
-                  </div>
-                  <div class="flex items-center gap-1.5">
-                    <div class="w-2 h-2 rounded-full bg-red-600"></div>
-                    <span>Low (<60%)</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="space-y-3">
-                @for (field of doc.extractedFields; track field.id) {
-                  <div class="border rounded-lg p-4 hover:border-primary/50 transition-colors"
-                       [class.bg-green-600/5]="field.isVerified"
-                       [class.border-green-600/50]="field.isVerified">
-                    <div class="flex justify-between items-start mb-2 gap-4">
-                      <h3 class="font-medium">{{ field.fieldName }}</h3>
-                      <div class="flex gap-1.5 items-center flex-wrap justify-end">
-                        @switch (getConfidenceClass(field.confidence)) {
-                          @case ('high') {
-                            <span hlmBadge class="bg-green-600 text-white">{{ (field.confidence * 100).toFixed(0) }}%</span>
-                          }
-                          @case ('medium') {
-                            <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">{{ (field.confidence * 100).toFixed(0) }}%</span>
-                          }
-                          @case ('low') {
-                            <span hlmBadge variant="destructive">{{ (field.confidence * 100).toFixed(0) }}%</span>
-                          }
-                        }
-                        @if (field.isVerified) {
-                          <span hlmBadge class="bg-green-600 text-white">
-                            Verified
-                          </span>
-                        }
-                      </div>
-                    </div>
-
-                    @if (editingField() === field.id) {
-                      <div class="space-y-2">
-                        <input
-                          hlmInput
-                          type="text"
-                          [(ngModel)]="editValue"
-                          class="w-full"
-                          placeholder="Enter corrected value"
-                        />
-                        <div class="flex gap-2">
-                          <button hlmBtn size="sm" (click)="saveField(field)">Save</button>
-                          <button hlmBtn variant="outline" size="sm" (click)="cancelEdit()">Cancel</button>
-                        </div>
-                      </div>
-                    } @else {
-                      <div class="flex justify-between items-center gap-4">
-                        <div class="flex-1">
-                          <div class="bg-muted rounded px-3 py-2">
-                            <span class="font-mono text-sm">{{ field.editedValue || field.fieldValue }}</span>
-                            @if (field.editedValue) {
-                              <span hlmBadge variant="secondary" class="ml-2 text-xs">Edited</span>
-                            }
-                          </div>
-                        </div>
-                        <div class="flex gap-2 flex-shrink-0">
-                          <button hlmBtn variant="outline" size="sm" (click)="startEdit(field)">Edit</button>
-                          @if (!field.isVerified) {
-                            <button hlmBtn size="sm" (click)="verifyField(field)">Verify</button>
-                          }
-                        </div>
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
-            </div>
-          </div>
-        }
-      }
-    </div>
-  `,
-  styles: []
+  templateUrl: './document-detail.component.html',
+  styleUrls: ['./document-detail.component.css']
 })
-export class DocumentDetailComponent implements OnInit, OnDestroy {
+export class DocumentDetailComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private documentService = inject(DocumentService);
   private toastService = inject(ToastService);
   private signalRService = inject(SignalRService);
 
-  document = signal<DocumentDetail | null>(null);
+  // Convert route params to signal
+  private documentId = toSignal(
+    this.route.paramMap.pipe(map(params => params.get('id')))
+  );
+
+  // Loading state
   loading = signal(true);
-  editingField = signal<string | null>(null);
-  editValue = '';
-  processingProgress = signal<ProcessingProgress | null>(null);
-  private subscriptions: Subscription[] = [];
-  private currentDocumentId?: string;
 
-  ngOnInit() {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.currentDocumentId = id;
-      this.loadDocument(id);
-      this.setupSignalRSubscriptions();
+  // Document signal - load based on ID changes
+  document = toSignal(
+    this.route.paramMap.pipe(
+      map(params => params.get('id')),
+      switchMap(id => {
+        if (!id) {
+          this.router.navigate(['/documents']);
+          throw new Error('No document ID');
+        }
+        this.loading.set(true);
+        return this.documentService.getDocument(id);
+      }),
+      map(doc => {
+        this.loading.set(false);
+        return doc;
+      })
+    ),
+    { initialValue: null }
+  );
+
+  // SignalR signals
+  private processingProgressRaw = toSignal(
+    this.signalRService.processingProgress$,
+    { initialValue: null }
+  );
+
+  private processingCompleteRaw = toSignal(
+    this.signalRService.processingComplete$,
+    { initialValue: null }
+  );
+
+  // Computed processing progress for current document
+  processingProgress = computed(() => {
+    const progress = this.processingProgressRaw();
+    const docId = this.documentId();
+    if (progress && progress.documentId === docId) {
+      return progress;
     }
-  }
+    return null;
+  });
 
-  ngOnDestroy() {
-    this.subscriptions.forEach(sub => sub.unsubscribe());
-  }
+  // Edit state
+  editingField = signal<string | null>(null);
 
-  private setupSignalRSubscriptions() {
-    const progressSub = this.signalRService.processingProgress$.subscribe(progress => {
-      if (progress.documentId === this.currentDocumentId) {
-        this.processingProgress.set(progress);
-      }
-    });
+  // Constructor with effects
+  constructor() {
+    // Effect to handle processing complete
+    effect(() => {
+      const complete = this.processingCompleteRaw();
+      const docId = this.documentId();
 
-    const completeSub = this.signalRService.processingComplete$.subscribe(complete => {
-      if (complete.documentId === this.currentDocumentId) {
-        this.processingProgress.set(null);
+      if (complete && complete.documentId === docId) {
+        // Show toast notification
         if (complete.success) {
           this.toastService.success('Document processed successfully!', 'All fields have been extracted');
         } else {
           this.toastService.error('Document processing failed', 'Please check the error details');
         }
-        if (this.currentDocumentId) {
-          this.loadDocument(this.currentDocumentId);
+
+        // Reload document
+        if (docId) {
+          this.reloadDocument(docId);
         }
       }
-    });
-
-    this.subscriptions.push(progressSub, completeSub);
+    }, { allowSignalWrites: true });
   }
 
-  loadDocument(id: string) {
+  private reloadDocument(id: string) {
+    this.loading.set(true);
     this.documentService.getDocument(id).subscribe({
       next: (doc) => {
-        this.document.set(doc);
+        // Signal is updated through the route observable
         this.loading.set(false);
       },
       error: () => {
         this.loading.set(false);
-        this.toastService.error('Document not found', 'The requested document could not be loaded');
-        this.router.navigate(['/documents']);
+        this.toastService.error('Failed to reload document', 'Please refresh the page');
       }
     });
   }
 
-  startEdit(field: ExtractedField) {
+  onEditRequested(field: ExtractedField) {
     this.editingField.set(field.id);
-    this.editValue = field.editedValue || field.fieldValue;
   }
 
-  cancelEdit() {
+  onCancelEdit() {
     this.editingField.set(null);
-    this.editValue = '';
   }
 
-  saveField(field: ExtractedField) {
-    const updatePromise = this.documentService.updateField(field.id, this.editValue, false).toPromise();
+  onSaveField(data: { field: ExtractedField; value: string }) {
+    const updatePromise = this.documentService.updateField(data.field.id, data.value, false).toPromise();
 
     this.toastService.promise(updatePromise!, {
       loading: 'Saving field...',
@@ -335,15 +145,14 @@ export class DocumentDetailComponent implements OnInit, OnDestroy {
     });
 
     updatePromise!.then(() => {
-      field.editedValue = this.editValue;
+      data.field.editedValue = data.value;
       this.editingField.set(null);
-      this.editValue = '';
     }).catch(() => {
       // Error already shown via toast
     });
   }
 
-  verifyField(field: ExtractedField) {
+  onVerifyField(field: ExtractedField) {
     const value = field.editedValue || field.fieldValue;
     const verifyPromise = this.documentService.updateField(field.id, value, true).toPromise();
 
@@ -360,23 +169,20 @@ export class DocumentDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  onCopyToClipboard(data: { value: string; fieldName: string }) {
+    navigator.clipboard.writeText(data.value).then(() => {
+      this.toastService.success('Copied!', `${data.fieldName} copied to clipboard`);
+    }).catch(() => {
+      this.toastService.error('Copy failed', 'Could not copy to clipboard');
+    });
+  }
+
   exportCsv() {
     const doc = this.document();
     if (doc) {
       this.toastService.success('Downloading CSV...', 'Your export will start shortly');
       this.documentService.downloadCsv(doc.id, doc.fileName);
     }
-  }
-
-  getConfidenceClass(confidence: number): string {
-    if (confidence > 0.8) return 'high';
-    if (confidence > 0.6) return 'medium';
-    return 'low';
-  }
-
-  getStatusText(status: number): string {
-    const statuses = ['Uploaded', 'Processing', 'Completed', 'Failed'];
-    return statuses[status] || 'Unknown';
   }
 
   formatDate(dateString: string): string {

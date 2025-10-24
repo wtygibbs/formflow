@@ -1,0 +1,85 @@
+<div hlmCard>
+  <div class="overflow-x-auto">
+    <table class="w-full">
+      <thead class="border-b">
+        <tr class="text-left">
+          <th class="p-4 w-12">
+            <input
+              type="checkbox"
+              [checked]="selectAllChecked()"
+              (change)="onToggleSelectAll()"
+              class="w-4 h-4 rounded border-gray-300 cursor-pointer"
+            />
+          </th>
+          <th class="p-4 font-semibold">File Name</th>
+          <th class="p-4 font-semibold">Status</th>
+          <th class="p-4 font-semibold">Uploaded</th>
+          <th class="p-4 font-semibold">Processed</th>
+          <th class="p-4 font-semibold text-center">Fields</th>
+          <th class="p-4 font-semibold">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (doc of documents(); track doc.id) {
+          <tr class="border-b hover:bg-muted/50 transition-colors">
+            <td class="p-4">
+              <input
+                type="checkbox"
+                [checked]="selectedDocuments().has(doc.id)"
+                (change)="onToggleSelection(doc.id)"
+                class="w-4 h-4 rounded border-gray-300 cursor-pointer"
+              />
+            </td>
+            <td class="p-4">
+              <div class="font-medium truncate max-w-xs" [title]="doc.fileName">
+                {{ doc.fileName }}
+              </div>
+            </td>
+            <td class="p-4">
+              @switch (doc.status) {
+                @case (0) {
+                  <span hlmBadge variant="secondary">Uploaded</span>
+                }
+                @case (1) {
+                  <div class="flex items-center gap-2">
+                    <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
+                    @if (getProcessingProgress(doc.id); as progress) {
+                      <span class="text-xs text-muted-foreground">{{ progress.percentComplete }}%</span>
+                    }
+                  </div>
+                }
+                @case (2) {
+                  <span hlmBadge class="bg-green-600 text-white">Completed</span>
+                }
+                @case (3) {
+                  <span hlmBadge variant="destructive">Failed</span>
+                }
+              }
+            </td>
+            <td class="p-4 text-sm text-muted-foreground">
+              {{ formatDate(doc.uploadedAt) }}
+            </td>
+            <td class="p-4 text-sm text-muted-foreground">
+              {{ doc.processedAt ? formatDate(doc.processedAt) : '-' }}
+            </td>
+            <td class="p-4 text-center">
+              <span class="text-sm font-medium">{{ doc.extractedFieldsCount }}</span>
+            </td>
+            <td class="p-4">
+              <div class="flex gap-2">
+                <a hlmBtn size="sm" variant="outline" [routerLink]="['/documents', doc.id]">
+                  View
+                </a>
+                @if (doc.status === 2) {
+                  <button hlmBtn variant="ghost" size="sm" (click)="onDownloadCsv(doc.id, doc.fileName)">
+                    CSV
+                  </button>
+                }
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

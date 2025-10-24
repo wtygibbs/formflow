@@ -1,0 +1,176 @@
+<div class="space-y-8">
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <h1 class="text-3xl font-bold">Documents</h1>
+  </div>
+
+  <!-- Upload Zone -->
+  <app-document-upload-zone
+    (filesQueued)="onFilesQueued($event)"
+    (uploadRequested)="onUploadRequested()"
+  />
+
+  <!-- Search and Filters -->
+  <app-document-filters
+    [loading]="loading()"
+    [paginationData]="paginationData()"
+    [(searchQuery)]="searchQuery"
+    [(statusFilter)]="statusFilter"
+    [(sortBy)]="sortBy"
+    [(sortOrder)]="sortOrder"
+    [(pageSize)]="pageSize"
+    (searchChanged)="onSearchChange($event)"
+    (filterChanged)="onFilterChange()"
+    (pageSizeChanged)="onPageSizeChange()"
+    (clearFilters)="onClearFilters()"
+  />
+
+  <!-- View Mode Toggle & Bulk Actions -->
+  @if (!loading() && documents().length > 0) {
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <!-- View Mode Toggle -->
+      <div class="flex gap-1 border rounded-md p-1">
+        <button
+          hlmBtn
+          [variant]="viewMode() === 'grid' ? 'default' : 'ghost'"
+          size="sm"
+          (click)="setViewMode('grid')"
+          class="gap-2"
+        >
+          <span class="text-lg">⊞</span> Grid
+        </button>
+        <button
+          hlmBtn
+          [variant]="viewMode() === 'table' ? 'default' : 'ghost'"
+          size="sm"
+          (click)="setViewMode('table')"
+          class="gap-2"
+        >
+          <span class="text-lg">☰</span> Table
+        </button>
+      </div>
+
+      <!-- Bulk Actions Toolbar -->
+      @if (selectedDocuments().size > 0) {
+        <div class="flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-md">
+          <span class="text-sm font-medium">{{ selectedDocuments().size }} selected</span>
+          <div class="flex gap-2">
+            <button hlmBtn variant="outline" size="sm" (click)="bulkExport()">
+              Export All
+            </button>
+            <button hlmBtn variant="destructive" size="sm" (click)="bulkDelete()">
+              Delete All
+            </button>
+            <button hlmBtn variant="ghost" size="sm" (click)="clearSelectedDocuments()">
+              Clear
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Content -->
+  @if (loading()) {
+    <!-- Skeleton Loaders -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <div hlmCard>
+          <div hlmCardContent class="space-y-4">
+            <div class="flex justify-between items-start">
+              <hlm-skeleton class="h-5 w-2/3" />
+              <hlm-skeleton class="h-5 w-16" />
+            </div>
+            <div class="space-y-2">
+              <hlm-skeleton class="h-4 w-full" />
+              <hlm-skeleton class="h-4 w-3/4" />
+              <hlm-skeleton class="h-4 w-1/2" />
+            </div>
+            <div class="flex gap-2">
+              <hlm-skeleton class="h-9 flex-1" />
+              <hlm-skeleton class="h-9 w-20" />
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (documents().length === 0) {
+    <!-- Empty State -->
+    <div hlmCard>
+      <div hlmCardContent class="flex flex-col items-center text-center py-16">
+        @if (hasActiveFilters()) {
+          <h2 class="text-2xl font-semibold mb-2">No Documents Found</h2>
+          <p class="text-muted-foreground mb-6">Try adjusting your filters or search term</p>
+          <button hlmBtn variant="outline" (click)="onClearFilters()">Clear Filters</button>
+        } @else {
+          <h2 class="text-2xl font-semibold mb-2">No Documents Yet</h2>
+          <p class="text-muted-foreground mb-6">Use the upload zone above to add your first ACORD 125 form</p>
+        }
+      </div>
+    </div>
+  } @else {
+    <!-- Grid View -->
+    @if (viewMode() === 'grid') {
+      <app-document-grid-view
+        [documents]="documents()"
+        [selectedDocuments]="selectedDocuments()"
+        [processingProgressMap]="processingProgressMap()"
+        (selectionToggled)="onSelectionToggled($event)"
+        (downloadCsv)="onDownloadCsv($event)"
+      />
+    }
+
+    <!-- Table View -->
+    @if (viewMode() === 'table') {
+      <app-document-table-view
+        [documents]="documents()"
+        [selectedDocuments]="selectedDocuments()"
+        [processingProgressMap]="processingProgressMap()"
+        [selectAllChecked]="selectAllChecked()"
+        (selectionToggled)="onSelectionToggled($event)"
+        (selectAllToggled)="onSelectAllToggled()"
+        (downloadCsv)="onDownloadCsv($event)"
+      />
+    }
+
+    <!-- Pagination -->
+    @if (paginationData() && paginationData()!.totalPages > 1) {
+      <div class="flex justify-center mt-8">
+        <nav hlmPaginationContent>
+          <!-- Previous Button -->
+          <button
+            hlmPaginationPrevious
+            [disabled]="!paginationData()!.hasPreviousPage"
+            (click)="goToPage(paginationData()!.page - 1)"
+          >
+            Previous
+          </button>
+
+          <!-- Page Numbers -->
+          @for (page of getPageNumbers(); track page) {
+            @if (page === '...') {
+              <span hlmPaginationEllipsis>...</span>
+            } @else {
+              <button
+                hlmPaginationLink
+                [isActive]="page === paginationData()!.page"
+                (click)="goToPage($any(page))"
+              >
+                {{ page }}
+              </button>
+            }
+          }
+
+          <!-- Next Button -->
+          <button
+            hlmPaginationNext
+            [disabled]="!paginationData()!.hasNextPage"
+            (click)="goToPage(paginationData()!.page + 1)"
+          >
+            Next
+          </button>
+        </nav>
+      </div>
+    }
+  }
+</div>

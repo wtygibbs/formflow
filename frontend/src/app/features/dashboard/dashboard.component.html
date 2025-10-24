@@ -1,0 +1,113 @@
+<div class="space-y-8">
+  <div class="flex justify-between items-center flex-wrap gap-4">
+    <h1 class="text-3xl font-bold">Analytics Dashboard</h1>
+    <a hlmBtn routerLink="/documents">
+      Upload Document
+    </a>
+  </div>
+
+  @if (loading()) {
+    <!-- Skeleton Loading State -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      @for (i of [1,2,3,4]; track i) {
+        <div hlmCard>
+          <div hlmCardContent class="pt-6 space-y-3">
+            <hlm-skeleton class="h-4 w-32" />
+            <hlm-skeleton class="h-10 w-24" />
+            <hlm-skeleton class="h-4 w-40" />
+          </div>
+        </div>
+      }
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      @for (i of [1,2]; track i) {
+        <div hlmCard>
+          <div hlmCardContent class="space-y-4">
+            <hlm-skeleton class="h-6 w-48" />
+            <hlm-skeleton class="h-64 w-full" />
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (metrics(); as data) {
+    <!-- Key Metrics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <app-metric-card
+        label="Total Documents"
+        [value]="data.documentStats.totalDocuments"
+        subtitle="All time"
+      />
+
+      <app-metric-card
+        label="Success Rate"
+        [value]="data.processingStats.successRate + '%'"
+        [subtitle]="data.documentStats.completedDocuments + ' completed'"
+        [valueClass]="successRateClass()"
+      />
+
+      <app-metric-card
+        label="Avg Processing Time"
+        [value]="formattedProcessingTime()"
+        subtitle="Per document"
+      />
+
+      <app-metric-card
+        label="Fields Extracted"
+        [value]="data.processingStats.totalFieldsExtracted.toLocaleString()"
+        subtitle="Total fields"
+      />
+    </div>
+
+    <!-- Processing Activity -->
+    @if (processingActivityData(); as activityData) {
+      <app-processing-activity [data]="activityData" />
+    }
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Processing Trends Chart -->
+      <app-chart-container title="Processing Trends (30 Days)">
+        @if (trendChartOptions(); as options) {
+          <apx-chart
+            [series]="options.series"
+            [chart]="options.chart"
+            [xaxis]="options.xaxis!"
+            [dataLabels]="options.dataLabels!"
+            [stroke]="options.stroke!"
+            [legend]="options.legend!"
+            [colors]="options.colors!"
+            [fill]="options.fill!"
+            [tooltip]="options.tooltip!"
+          ></apx-chart>
+        }
+      </app-chart-container>
+
+      <!-- Status Distribution Chart -->
+      <app-chart-container title="Document Status Distribution">
+        @if (statusChartOptions(); as options) {
+          <apx-chart
+            [series]="options.series"
+            [chart]="options.chart"
+            [labels]="options.labels!"
+            [dataLabels]="options.dataLabels!"
+            [colors]="options.colors!"
+            [legend]="options.legend!"
+            [plotOptions]="options.plotOptions!"
+            [tooltip]="options.tooltip!"
+          ></apx-chart>
+        }
+      </app-chart-container>
+    </div>
+
+    <!-- Quality Metrics -->
+    @if (qualityMetrics(); as qMetrics) {
+      <app-quality-metrics-panel [metrics]="qMetrics" />
+    }
+
+    <!-- Quick Actions -->
+    <div class="flex gap-4 flex-wrap">
+      <a hlmBtn routerLink="/documents">View All Documents</a>
+      <a hlmBtn variant="outline" routerLink="/subscription">Manage Subscription</a>
+    </div>
+  }
+</div>
