@@ -4,6 +4,8 @@ using AcordParser.Core.Entities;
 using AcordParser.Core.Interfaces;
 using AcordParser.Infrastructure.Data;
 using AcordParser.Infrastructure.Services;
+using Azure.Storage.Blobs;
+using HealthChecks.Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
@@ -108,8 +110,16 @@ builder.Services.AddHealthChecks()
         failureStatus: HealthStatus.Unhealthy,
         tags: new[] { "db", "sql", "sqlserver" })
     .AddAzureBlobStorage(
-        connectionString: builder.Configuration["AzureBlobStorage:ConnectionString"] ?? string.Empty,
-        name: "azure-blob-storage",
+        clientFactory: sp =>
+        {
+            var connectionString = builder.Configuration["AzureStorage:ConnectionString"] 
+                ?? throw new InvalidOperationException("Azure Blob Storage connection string not configured");
+            return new BlobServiceClient(connectionString);
+        },
+        optionsFactory: sp => new AzureBlobStorageHealthCheckOptions()
+        {
+            ContainerName = "documents"
+        }, 
         failureStatus: HealthStatus.Degraded,
         tags: new[] { "azure", "storage" })
     .AddCheck("self", () => HealthCheckResult.Healthy("API is running"), tags: new[] { "api" });
@@ -168,7 +178,7 @@ builder.Services.AddRateLimiter(options =>
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
             error = "Too many requests. Please try again later.",
-            retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter) ? retryAfter.TotalSeconds : null
+            retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter) ? retryAfter.TotalSeconds : default(double?)
         }, cancellationToken);
     };
 });

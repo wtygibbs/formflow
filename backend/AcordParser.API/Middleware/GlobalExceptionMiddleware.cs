@@ -57,8 +57,8 @@ public class GlobalExceptionMiddleware
                 errorResponse.Details = exception.Message;
                 break;
 
-            case ArgumentException:
             case ArgumentNullException:
+            case ArgumentException:
                 response.StatusCode = (int)HttpStatusCode.BadRequest;
                 errorResponse.Message = "Invalid argument";
                 errorResponse.Details = exception.Message;
