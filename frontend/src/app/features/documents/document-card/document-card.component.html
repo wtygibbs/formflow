@@ -1,7 +1,7 @@
 <div hlmCard class="hover:shadow-md transition-shadow relative">
   <div hlmCardContent>
     <!-- Selection Checkbox -->
-    <div class="absolute top-3 left-3">
+    <div class="absolute top-3 left-3" (click)="$event.stopPropagation()">
       <input
         type="checkbox"
         [checked]="isSelected()"
@@ -59,7 +59,7 @@
       }
     </div>
 
-    <div class="flex gap-2 mt-4">
+    <div class="flex gap-2 mt-4" (click)="$event.stopPropagation()">
       <a hlmBtn size="sm" class="flex-1" [routerLink]="['/documents', document().id]">
         View
       </a>

@@ -10,4 +10,10 @@ public class PaginationRequest
     public DateTime? ToDate { get; set; }
     public string? SortBy { get; set; } = "UploadedAt";
     public string? SortOrder { get; set; } = "desc";
+
+    // Advanced filters
+    public double? MinConfidence { get; set; }
+    public string? FileTypes { get; set; } // Comma-separated list (e.g., "PDF,PNG,JPG")
+    public int? MinFieldCount { get; set; }
+    public int? MaxFieldCount { get; set; }
 }

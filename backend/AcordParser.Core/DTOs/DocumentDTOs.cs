@@ -20,6 +20,7 @@ public record DocumentListResponse(
 public record DocumentDetailResponse(
     Guid Id,
     string FileName,
+    string? FileUrl,
     DocumentStatus Status,
     DateTime UploadedAt,
     DateTime? ProcessedAt,

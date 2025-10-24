@@ -52,6 +52,12 @@ export class DocumentPreviewPanelComponent {
     return doc.extractedFields.slice(0, 5); // Show top 5 fields
   });
 
+  fileUrl = computed(() => {
+    const doc = this.document();
+    if (!doc) return null;
+    return this.documentService.getDocumentFileUrl(doc.id);
+  });
+
   constructor() {
     // Effect to load document when ID changes
     effect(() => {

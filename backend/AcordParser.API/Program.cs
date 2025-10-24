@@ -355,7 +355,11 @@ app.MapGet("/api/documents/paginated", async (
     DateTime? fromDate = null,
     DateTime? toDate = null,
     string? sortBy = "UploadedAt",
-    string? sortOrder = "desc") =>
+    string? sortOrder = "desc",
+    double? minConfidence = null,
+    string? fileTypes = null,
+    int? minFieldCount = null,
+    int? maxFieldCount = null) =>
 {
     var userId = GetUserId(user);
     var request = new PaginationRequest
@@ -367,7 +371,11 @@ app.MapGet("/api/documents/paginated", async (
         FromDate = fromDate,
         ToDate = toDate,
         SortBy = sortBy,
-        SortOrder = sortOrder
+        SortOrder = sortOrder,
+        MinConfidence = minConfidence,
+        FileTypes = fileTypes,
+        MinFieldCount = minFieldCount,
+        MaxFieldCount = maxFieldCount
     };
     var documents = await documentService.GetUserDocumentsPaginatedAsync(userId, request);
     return Results.Ok(documents);
@@ -412,6 +420,32 @@ app.MapGet("/api/documents/{documentId}/export", async (Guid documentId, IDocume
 })
 .RequireAuthorization()
 .WithName("ExportDocument")
+.WithTags("Documents");
+
+app.MapGet("/api/documents/{documentId}/file", async (Guid documentId, IDocumentService documentService, IBlobStorageService blobStorage, ClaimsPrincipal user) =>
+{
+    var userId = GetUserId(user);
+
+    try
+    {
+        var document = await documentService.GetDocumentDetailAsync(documentId, userId);
+        if (document == null)
+        {
+            return Results.NotFound(new { error = "Document not found" });
+        }
+
+        // Get the blob URL (this assumes the blob is publicly accessible or we have SAS tokens)
+        // For now, we'll redirect to the blob storage URL
+        // In production, you might want to stream the file through your API
+        return Results.Redirect(document.FileUrl ?? string.Empty);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+})
+.RequireAuthorization()
+.WithName("GetDocumentFile")
 .WithTags("Documents");
 
 app.MapGet("/api/documents/dashboard/metrics", async (IDocumentService documentService, ClaimsPrincipal user) =>

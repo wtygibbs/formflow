@@ -139,6 +139,37 @@ public class DocumentService : IDocumentService
             query = query.Where(d => d.UploadedAt <= toDateEndOfDay);
         }
 
+        // Apply advanced filters
+        if (request.MinConfidence.HasValue)
+        {
+            // Filter documents where average field confidence >= minConfidence
+            query = query.Where(d => d.ExtractedFields.Any() &&
+                d.ExtractedFields.Average(f => f.Confidence) >= request.MinConfidence.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.FileTypes))
+        {
+            // Parse comma-separated file types (e.g., "PDF,PNG,JPG")
+            var fileTypes = request.FileTypes.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(ft => "." + ft.Trim().ToUpper())
+                .ToList();
+
+            if (fileTypes.Any())
+            {
+                query = query.Where(d => fileTypes.Any(ft => d.FileName.ToUpper().EndsWith(ft)));
+            }
+        }
+
+        if (request.MinFieldCount.HasValue)
+        {
+            query = query.Where(d => d.ExtractedFields.Count >= request.MinFieldCount.Value);
+        }
+
+        if (request.MaxFieldCount.HasValue)
+        {
+            query = query.Where(d => d.ExtractedFields.Count <= request.MaxFieldCount.Value);
+        }
+
         // Get total count before pagination
         var totalCount = await query.CountAsync();
 
@@ -209,6 +240,7 @@ public class DocumentService : IDocumentService
         return new DocumentDetailResponse(
             document.Id,
             document.FileName,
+            document.BlobStorageUrl,
             document.Status,
             document.UploadedAt,
             document.ProcessedAt,

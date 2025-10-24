@@ -79,14 +79,41 @@ export class DocumentListComponent {
   );
 
   // Computed signal for pagination request
-  private paginationRequest = computed<PaginationRequest>(() => ({
-    page: this.currentPage(),
-    pageSize: this.pageSize(),
-    search: this.searchQuery() || undefined,
-    status: this.statusFilter() || undefined,
-    sortBy: this.sortBy(),
-    sortOrder: this.sortOrder()
-  }));
+  private paginationRequest = computed<PaginationRequest>(() => {
+    const filters = this.advancedFilters();
+    let fromDate: string | undefined;
+    let toDate: string | undefined;
+
+    // Convert date range to fromDate/toDate
+    if (filters.dateRange !== 'all') {
+      const now = new Date();
+      if (filters.dateRange === 'last7') {
+        fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (filters.dateRange === 'last30') {
+        fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (filters.dateRange === 'last90') {
+        fromDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (filters.dateRange === 'custom') {
+        fromDate = filters.customStartDate;
+        toDate = filters.customEndDate;
+      }
+    }
+
+    return {
+      page: this.currentPage(),
+      pageSize: this.pageSize(),
+      search: this.searchQuery() || undefined,
+      status: this.statusFilter() || undefined,
+      fromDate,
+      toDate,
+      sortBy: this.sortBy(),
+      sortOrder: this.sortOrder(),
+      minConfidence: filters.minConfidence > 0 ? filters.minConfidence / 100 : undefined,
+      fileTypes: filters.fileTypes.length > 0 ? filters.fileTypes.join(',') : undefined,
+      minFieldCount: filters.minFieldCount,
+      maxFieldCount: filters.maxFieldCount
+    };
+  });
 
   // Load trigger signal
   private loadTrigger = signal(0);
