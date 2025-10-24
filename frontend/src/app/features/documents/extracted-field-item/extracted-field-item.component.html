@@ -1,70 +1,91 @@
-<div class="border rounded-lg p-4 hover:border-primary/50 transition-colors"
-     [class.bg-green-600/5]="field().isVerified"
-     [class.border-green-600/50]="field().isVerified">
-  <div class="flex justify-between items-start mb-2 gap-4">
-    <h3 class="font-medium">{{ field().fieldName }}</h3>
-    <div class="flex gap-1.5 items-center flex-wrap justify-end">
-      @switch (getConfidenceClass(field().confidence)) {
-        @case ('high') {
-          <span hlmBadge class="bg-green-600 text-white">{{ (field().confidence * 100).toFixed(0) }}%</span>
+<div class="p-3 hover:bg-muted/50 transition-colors border-b last:border-b-0"
+     [class.bg-green-50/50]="field().isVerified">
+  <!-- Field Row -->
+  <div class="flex items-start gap-3">
+    <!-- Field Name & Value -->
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 mb-1 flex-wrap">
+        <span class="text-sm font-medium text-muted-foreground">{{ field().fieldName }}</span>
+        @switch (getConfidenceClass(field().confidence)) {
+          @case ('high') {
+            <span class="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+              {{ (field().confidence * 100).toFixed(0) }}%
+            </span>
+          }
+          @case ('medium') {
+            <span class="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">
+              {{ (field().confidence * 100).toFixed(0) }}%
+            </span>
+          }
+          @case ('low') {
+            <span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+              {{ (field().confidence * 100).toFixed(0) }}%
+            </span>
+          }
         }
-        @case ('medium') {
-          <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">{{ (field().confidence * 100).toFixed(0) }}%</span>
+        @if (field().isVerified) {
+          <span class="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">✓ Verified</span>
         }
-        @case ('low') {
-          <span hlmBadge variant="destructive">{{ (field().confidence * 100).toFixed(0) }}%</span>
+        @if (field().editedValue) {
+          <span class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Edited</span>
         }
-      }
-      @if (field().isVerified) {
-        <span hlmBadge class="bg-green-600 text-white">
-          Verified
-        </span>
-      }
-    </div>
-  </div>
+      </div>
 
-  @if (isEditing()) {
-    <div class="space-y-2">
-      <input
-        hlmInput
-        type="text"
-        [(ngModel)]="editValue"
-        class="w-full"
-        placeholder="Enter corrected value"
-      />
-      <div class="flex gap-2">
-        <button hlmBtn size="sm" (click)="onSave()">Save</button>
-        <button hlmBtn variant="outline" size="sm" (click)="onCancel()">Cancel</button>
-      </div>
-    </div>
-  } @else {
-    <div class="flex justify-between items-center gap-4">
-      <div class="flex-1">
-        <div class="bg-muted rounded px-3 py-2 flex items-center justify-between group">
-          <span class="font-mono text-sm">{{ field().editedValue || field().fieldValue }}</span>
-          <div class="flex items-center gap-2">
-            @if (field().editedValue) {
-              <span hlmBadge variant="secondary" class="text-xs">Edited</span>
-            }
-            <button
-              hlmBtn
-              variant="ghost"
-              size="sm"
-              class="h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
-              (click)="onCopy()"
-              title="Copy to clipboard"
-            >
-              📋
-            </button>
-          </div>
+      @if (isEditing()) {
+        <div class="flex gap-2 mt-1">
+          <input
+            hlmInput
+            type="text"
+            [(ngModel)]="editValue"
+            class="flex-1 h-8 text-sm"
+            placeholder="Enter corrected value"
+          />
+          <button hlmBtn size="sm" (click)="onSave()" class="h-8 px-2 text-xs">Save</button>
+          <button hlmBtn variant="ghost" size="sm" (click)="onCancel()" class="h-8 px-2 text-xs">✕</button>
         </div>
-      </div>
-      <div class="flex gap-2 flex-shrink-0">
-        <button hlmBtn variant="outline" size="sm" (click)="onEdit()">Edit</button>
+      } @else {
+        <div class="flex items-center gap-2 group">
+          <span class="font-mono text-sm flex-1" [title]="field().editedValue || field().fieldValue">
+            {{ field().editedValue || field().fieldValue }}
+          </span>
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            (click)="onCopy()"
+            title="Copy"
+          >
+            📋
+          </button>
+        </div>
+      }
+    </div>
+
+    <!-- Actions -->
+    @if (!isEditing()) {
+      <div class="flex gap-1 flex-shrink-0">
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="h-7 px-2 text-xs"
+          (click)="onEdit()"
+        >
+          Edit
+        </button>
         @if (!field().isVerified) {
-          <button hlmBtn size="sm" (click)="onVerify()">Verify</button>
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="h-7 px-2 text-xs"
+            (click)="onVerify()"
+          >
+            Verify
+          </button>
         }
       </div>
-    </div>
-  }
+    }
+  </div>
 </div>

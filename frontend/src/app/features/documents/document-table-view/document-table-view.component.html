@@ -21,8 +21,8 @@
       </thead>
       <tbody>
         @for (doc of documents(); track doc.id) {
-          <tr class="border-b hover:bg-muted/50 transition-colors">
-            <td class="p-4">
+          <tr class="border-b hover:bg-muted/50 transition-colors cursor-pointer" (click)="onDocumentClicked(doc.id)">
+            <td class="p-4" (click)="$event.stopPropagation()">
               <input
                 type="checkbox"
                 [checked]="selectedDocuments().has(doc.id)"
@@ -65,7 +65,7 @@
             <td class="p-4 text-center">
               <span class="text-sm font-medium">{{ doc.extractedFieldsCount }}</span>
             </td>
-            <td class="p-4">
+            <td class="p-4" (click)="$event.stopPropagation()">
               <div class="flex gap-2">
                 <a hlmBtn size="sm" variant="outline" [routerLink]="['/documents', doc.id]">
                   View

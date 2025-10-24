@@ -14,6 +14,8 @@ import { DocumentUploadZoneComponent } from '../document-upload-zone/document-up
 import { DocumentFiltersComponent } from '../document-filters/document-filters.component';
 import { DocumentGridViewComponent } from '../document-grid-view/document-grid-view.component';
 import { DocumentTableViewComponent } from '../document-table-view/document-table-view.component';
+import { AdvancedFiltersPanelComponent, AdvancedFilters } from '../advanced-filters-panel/advanced-filters-panel.component';
+import { DocumentPreviewPanelComponent } from '../document-preview-panel/document-preview-panel.component';
 
 @Component({
   selector: 'app-document-list',
@@ -24,6 +26,8 @@ import { DocumentTableViewComponent } from '../document-table-view/document-tabl
     DocumentFiltersComponent,
     DocumentGridViewComponent,
     DocumentTableViewComponent,
+    AdvancedFiltersPanelComponent,
+    DocumentPreviewPanelComponent,
     ...HlmCardImports,
     ...HlmButtonImports,
     ...HlmBadgeImports,
@@ -55,6 +59,18 @@ export class DocumentListComponent {
   selectAllChecked = signal(false);
   loading = signal(false);
 
+  // New: Panel states
+  isAdvancedFiltersOpen = signal(false);
+  isPreviewPanelOpen = signal(false);
+  previewDocumentId = signal<string>('');
+  advancedFilters = signal<AdvancedFilters>({
+    dateRange: 'all',
+    minConfidence: 0,
+    fileTypes: [],
+    minFieldCount: undefined,
+    maxFieldCount: undefined
+  });
+
   // Search debounce subject
   private searchSubject = new Subject<string>();
   private debouncedSearch = toSignal(
@@ -63,14 +79,41 @@ export class DocumentListComponent {
   );
 
   // Computed signal for pagination request
-  private paginationRequest = computed<PaginationRequest>(() => ({
-    page: this.currentPage(),
-    pageSize: this.pageSize(),
-    search: this.searchQuery() || undefined,
-    status: this.statusFilter() || undefined,
-    sortBy: this.sortBy(),
-    sortOrder: this.sortOrder()
-  }));
+  private paginationRequest = computed<PaginationRequest>(() => {
+    const filters = this.advancedFilters();
+    let fromDate: string | undefined;
+    let toDate: string | undefined;
+
+    // Convert date range to fromDate/toDate
+    if (filters.dateRange !== 'all') {
+      const now = new Date();
+      if (filters.dateRange === 'last7') {
+        fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (filters.dateRange === 'last30') {
+        fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (filters.dateRange === 'last90') {
+        fromDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (filters.dateRange === 'custom') {
+        fromDate = filters.customStartDate;
+        toDate = filters.customEndDate;
+      }
+    }
+
+    return {
+      page: this.currentPage(),
+      pageSize: this.pageSize(),
+      search: this.searchQuery() || undefined,
+      status: this.statusFilter() || undefined,
+      fromDate,
+      toDate,
+      sortBy: this.sortBy(),
+      sortOrder: this.sortOrder(),
+      minConfidence: filters.minConfidence > 0 ? filters.minConfidence / 100 : undefined,
+      fileTypes: filters.fileTypes.length > 0 ? filters.fileTypes.join(',') : undefined,
+      minFieldCount: filters.minFieldCount,
+      maxFieldCount: filters.maxFieldCount
+    };
+  });
 
   // Load trigger signal
   private loadTrigger = signal(0);
@@ -360,5 +403,30 @@ export class DocumentListComponent {
     }
 
     return pages;
+  }
+
+  // New: Panel management methods
+  toggleAdvancedFilters() {
+    this.isAdvancedFiltersOpen.update(v => !v);
+  }
+
+  closeAdvancedFilters() {
+    this.isAdvancedFiltersOpen.set(false);
+  }
+
+  applyAdvancedFilters(filters: AdvancedFilters) {
+    this.advancedFilters.set(filters);
+    this.currentPage.set(1);
+    this.triggerLoad();
+    this.toastService.success('Filters applied', 'Document list updated');
+  }
+
+  openDocumentPreview(documentId: string) {
+    this.previewDocumentId.set(documentId);
+    this.isPreviewPanelOpen.set(true);
+  }
+
+  closePreviewPanel() {
+    this.isPreviewPanelOpen.set(false);
   }
 }

@@ -24,6 +24,7 @@ export interface ExtractedField {
 export interface DocumentDetail {
   id: string;
   fileName: string;
+  fileUrl?: string;
   status: number;
   uploadedAt: string;
   processedAt?: string;
@@ -46,6 +47,10 @@ export interface PaginationRequest {
   toDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  minConfidence?: number;
+  fileTypes?: string;
+  minFieldCount?: number;
+  maxFieldCount?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -90,6 +95,10 @@ export class DocumentService {
     if (params.toDate) queryParams.toDate = params.toDate;
     if (params.sortBy) queryParams.sortBy = params.sortBy;
     if (params.sortOrder) queryParams.sortOrder = params.sortOrder;
+    if (params.minConfidence !== undefined) queryParams.minConfidence = params.minConfidence.toString();
+    if (params.fileTypes) queryParams.fileTypes = params.fileTypes;
+    if (params.minFieldCount !== undefined) queryParams.minFieldCount = params.minFieldCount.toString();
+    if (params.maxFieldCount !== undefined) queryParams.maxFieldCount = params.maxFieldCount.toString();
 
     return this.http.get<PaginatedResponse<DocumentListItem>>(
       `${environment.apiUrl}/documents/paginated`,
@@ -125,5 +134,9 @@ export class DocumentService {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     });
+  }
+
+  getDocumentFileUrl(documentId: string): string {
+    return `${environment.apiUrl}/documents/${documentId}/file`;
   }
 }

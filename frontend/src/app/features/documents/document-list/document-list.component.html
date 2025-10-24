@@ -1,17 +1,23 @@
-<div class="space-y-8">
+<div class="space-y-6">
   <!-- Header -->
-  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
     <h1 class="text-3xl font-bold">Documents</h1>
+    <button hlmBtn variant="outline" (click)="toggleAdvancedFilters()">
+      🔍 Advanced Filters
+    </button>
   </div>
 
   <!-- Upload Zone -->
-  <app-document-upload-zone
-    (filesQueued)="onFilesQueued($event)"
-    (uploadRequested)="onUploadRequested()"
-  />
+  <div class="mb-6">
+    <app-document-upload-zone
+      (filesQueued)="onFilesQueued($event)"
+      (uploadRequested)="onUploadRequested()"
+    />
+  </div>
 
   <!-- Search and Filters -->
-  <app-document-filters
+  <div class="mb-6">
+    <app-document-filters
     [loading]="loading()"
     [paginationData]="paginationData()"
     [(searchQuery)]="searchQuery"
@@ -24,6 +30,7 @@
     (pageSizeChanged)="onPageSizeChange()"
     (clearFilters)="onClearFilters()"
   />
+  </div>
 
   <!-- View Mode Toggle & Bulk Actions -->
   @if (!loading() && documents().length > 0) {
@@ -117,6 +124,7 @@
         [processingProgressMap]="processingProgressMap()"
         (selectionToggled)="onSelectionToggled($event)"
         (downloadCsv)="onDownloadCsv($event)"
+        (documentClicked)="openDocumentPreview($event)"
       />
     }
 
@@ -130,6 +138,7 @@
         (selectionToggled)="onSelectionToggled($event)"
         (selectAllToggled)="onSelectAllToggled()"
         (downloadCsv)="onDownloadCsv($event)"
+        (documentClicked)="openDocumentPreview($event)"
       />
     }
 
@@ -174,3 +183,27 @@
     }
   }
 </div>
+
+<!-- Advanced Filters Side Panel -->
+@if (isAdvancedFiltersOpen()) {
+  <div class="fixed inset-0 z-50 flex">
+    <!-- Overlay -->
+    <div class="absolute inset-0 bg-black/50" (click)="closeAdvancedFilters()"></div>
+
+    <!-- Panel -->
+    <div class="relative ml-auto w-full max-w-md h-full bg-background shadow-2xl">
+      <app-advanced-filters-panel
+        [(filters)]="advancedFilters"
+        (filtersApplied)="applyAdvancedFilters($event)"
+        (filtersClosed)="closeAdvancedFilters()"
+      />
+    </div>
+  </div>
+}
+
+<!-- Document Preview Panel -->
+<app-document-preview-panel
+  [documentId]="previewDocumentId()"
+  [isOpen]="isPreviewPanelOpen()"
+  (closed)="closePreviewPanel()"
+/>

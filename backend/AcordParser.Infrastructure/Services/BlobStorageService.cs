@@ -1,6 +1,7 @@
 using AcordParser.Core.Interfaces;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Azure.Storage.Sas;
 using Microsoft.Extensions.Configuration;
 
 namespace AcordParser.Infrastructure.Services;
@@ -59,6 +60,39 @@ public class BlobStorageService : IBlobStorageService
         var blobClient = containerClient.GetBlobClient(blobName);
 
         await blobClient.DeleteIfExistsAsync();
+    }
+
+    public string GenerateSasUrl(string blobUrl, int expiryMinutes = 60)
+    {
+        // Extract blob name from URL
+        var blobName = GetBlobNameFromUrl(blobUrl);
+
+        var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
+        var blobClient = containerClient.GetBlobClient(blobName);
+
+        // Check if the blob client can generate SAS tokens
+        if (!blobClient.CanGenerateSasUri)
+        {
+            throw new InvalidOperationException("BlobClient must be authenticated with Shared Key credentials to generate SAS tokens");
+        }
+
+        // Create a SAS token that's valid for the specified duration
+        var sasBuilder = new BlobSasBuilder
+        {
+            BlobContainerName = _containerName,
+            BlobName = blobName,
+            Resource = "b", // "b" for blob
+            StartsOn = DateTimeOffset.UtcNow.AddMinutes(-5), // Start 5 minutes ago to account for clock skew
+            ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes)
+        };
+
+        // Set read permissions
+        sasBuilder.SetPermissions(BlobSasPermissions.Read);
+
+        // Generate the SAS URI
+        var sasUri = blobClient.GenerateSasUri(sasBuilder);
+
+        return sasUri.ToString();
     }
 
     private string GetBlobNameFromUrl(string blobUrl)

@@ -355,7 +355,11 @@ app.MapGet("/api/documents/paginated", async (
     DateTime? fromDate = null,
     DateTime? toDate = null,
     string? sortBy = "UploadedAt",
-    string? sortOrder = "desc") =>
+    string? sortOrder = "desc",
+    double? minConfidence = null,
+    string? fileTypes = null,
+    int? minFieldCount = null,
+    int? maxFieldCount = null) =>
 {
     var userId = GetUserId(user);
     var request = new PaginationRequest
@@ -367,7 +371,11 @@ app.MapGet("/api/documents/paginated", async (
         FromDate = fromDate,
         ToDate = toDate,
         SortBy = sortBy,
-        SortOrder = sortOrder
+        SortOrder = sortOrder,
+        MinConfidence = minConfidence,
+        FileTypes = fileTypes,
+        MinFieldCount = minFieldCount,
+        MaxFieldCount = maxFieldCount
     };
     var documents = await documentService.GetUserDocumentsPaginatedAsync(userId, request);
     return Results.Ok(documents);
@@ -412,6 +420,61 @@ app.MapGet("/api/documents/{documentId}/export", async (Guid documentId, IDocume
 })
 .RequireAuthorization()
 .WithName("ExportDocument")
+.WithTags("Documents");
+
+app.MapGet("/api/documents/{documentId}/file", async (Guid documentId, IDocumentService documentService, IBlobStorageService blobStorage, ClaimsPrincipal user, ILogger<Program> logger) =>
+{
+    var userId = GetUserId(user);
+
+    try
+    {
+        logger.LogInformation("Fetching document file for documentId: {DocumentId}, userId: {UserId}", documentId, userId);
+
+        var document = await documentService.GetDocumentDetailAsync(documentId, userId);
+        if (document == null)
+        {
+            logger.LogWarning("Document not found: {DocumentId}", documentId);
+            return Results.NotFound(new { error = "Document not found" });
+        }
+
+        if (string.IsNullOrEmpty(document.FileUrl))
+        {
+            logger.LogWarning("Document has no file URL: {DocumentId}", documentId);
+            return Results.NotFound(new { error = "Document file not found" });
+        }
+
+        logger.LogInformation("Downloading blob from: {BlobUrl}", document.FileUrl);
+
+        // Download the file from blob storage and stream it to the client
+        var fileStream = await blobStorage.DownloadFileAsync(document.FileUrl);
+
+        // Determine content type based on file extension
+        var extension = Path.GetExtension(document.FileName).ToLowerInvariant();
+        var contentType = extension switch
+        {
+            ".pdf" => "application/pdf",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".tiff" or ".tif" => "image/tiff",
+            _ => "application/octet-stream"
+        };
+
+        logger.LogInformation("Streaming file with content type: {ContentType}", contentType);
+
+        return Results.Stream(fileStream, contentType, enableRangeProcessing: true);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error fetching document file: {DocumentId}", documentId);
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: 500,
+            title: "Failed to fetch document file"
+        );
+    }
+})
+.RequireAuthorization()
+.WithName("GetDocumentFile")
 .WithTags("Documents");
 
 app.MapGet("/api/documents/dashboard/metrics", async (IDocumentService documentService, ClaimsPrincipal user) =>

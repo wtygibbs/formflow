@@ -1,0 +1,233 @@
+<!-- Overlay -->
+@if (isOpen()) {
+  <div class="fixed inset-0 bg-black/50 z-40" (click)="close()"></div>
+}
+
+<!-- Slide-out Panel -->
+<div
+  class="fixed top-0 right-0 h-full w-full md:w-[600px] bg-background shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col"
+  [class.translate-x-0]="isOpen()"
+  [class.translate-x-full]="!isOpen()"
+>
+  @if (loading()) {
+    <!-- Loading State -->
+    <div class="flex items-center justify-between p-6 border-b">
+      <hlm-skeleton class="h-6 w-48" />
+      <button hlmBtn variant="ghost" size="sm" (click)="close()">✕</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6 space-y-4">
+      @for (i of [1,2,3,4,5]; track i) {
+        <div class="space-y-2 border-b pb-4">
+          <hlm-skeleton class="h-5 w-32" />
+          <hlm-skeleton class="h-6 w-full" />
+        </div>
+      }
+    </div>
+  } @else if (document(); as doc) {
+    <!-- Header -->
+    <div class="flex items-start justify-between p-6 border-b gap-4">
+      <div class="flex-1 min-w-0">
+        <h2 class="text-xl font-semibold truncate mb-2" [title]="doc.fileName">
+          {{ doc.fileName }}
+        </h2>
+        <div class="flex flex-wrap gap-2 text-sm">
+          @switch (doc.status) {
+            @case (0) {
+              <span hlmBadge variant="secondary">Uploaded</span>
+            }
+            @case (1) {
+              <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
+            }
+            @case (2) {
+              <span hlmBadge class="bg-green-600 text-white">Completed</span>
+            }
+            @case (3) {
+              <span hlmBadge variant="destructive">Failed</span>
+            }
+          }
+          <span class="text-muted-foreground">{{ formatDate(doc.uploadedAt) }}</span>
+        </div>
+      </div>
+      <button hlmBtn variant="ghost" size="sm" (click)="close()">
+        ✕
+      </button>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="px-6 py-4 border-b flex flex-wrap gap-2">
+      <a hlmBtn variant="outline" size="sm" [routerLink]="['/documents', doc.id]" (click)="close()">
+        Full View
+      </a>
+      <button hlmBtn variant="outline" size="sm" (click)="exportCsv()" [disabled]="doc.status !== 2">
+        Export CSV
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-6">
+      <!-- Document Preview -->
+      @if (filePreviewUrl()) {
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">Document Preview</h3>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              (click)="toggleFullscreen()"
+              title="Toggle fullscreen"
+              class="h-7 px-2"
+            >
+              @if (isFullscreen()) {
+                <span class="text-sm">⊗ Exit Fullscreen</span>
+              } @else {
+                <span class="text-sm">⛶ Fullscreen</span>
+              }
+            </button>
+          </div>
+          <div #previewContainer class="border rounded-lg overflow-hidden bg-muted/20">
+            @if (fileType() === 'pdf') {
+              <!-- PDF Preview using iframe -->
+              <iframe
+                [src]="safeFileUrl()"
+                class="w-full h-96 border-0"
+                title="{{ doc.fileName }}"
+              ></iframe>
+            } @else if (fileType() === 'image') {
+              <!-- Image Preview -->
+              <img
+                [src]="filePreviewUrl()"
+                [alt]="doc.fileName"
+                class="w-full h-auto max-h-96 object-contain"
+                (error)="$any($event.target).style.display='none'"
+              />
+            } @else {
+              <!-- Fallback for unknown types -->
+              <div class="p-6 text-center text-muted-foreground">
+                <p>Preview not available for this file type</p>
+                <a [href]="filePreviewUrl()" target="_blank" class="text-primary underline">Open in new tab</a>
+              </div>
+            }
+          </div>
+        </div>
+      }
+      @if (doc.extractedFields.length === 0) {
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+          <p class="text-muted-foreground">No fields extracted yet</p>
+        </div>
+      } @else {
+        <!-- Preview: Top 5 Fields -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">Extracted Fields</h3>
+            <span class="text-xs text-muted-foreground">
+              Showing {{ topFields().length }} of {{ doc.extractedFields.length }}
+            </span>
+          </div>
+
+          <div class="border rounded-lg overflow-hidden">
+            @for (field of topFields(); track field.id; let isLast = $last) {
+              <div class="p-3 hover:bg-muted/50 transition-colors"
+                   [class.bg-green-50/50]="field.isVerified"
+                   [class.border-b]="!isLast">
+                <!-- Field Row -->
+                <div class="flex items-start gap-3">
+                  <!-- Field Name & Value -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-xs font-medium text-muted-foreground">{{ field.fieldName }}</span>
+                      @switch (getConfidenceClass(field.confidence)) {
+                        @case ('high') {
+                          <span class="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+                            {{ (field.confidence * 100).toFixed(0) }}%
+                          </span>
+                        }
+                        @case ('medium') {
+                          <span class="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">
+                            {{ (field.confidence * 100).toFixed(0) }}%
+                          </span>
+                        }
+                        @case ('low') {
+                          <span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                            {{ (field.confidence * 100).toFixed(0) }}%
+                          </span>
+                        }
+                      }
+                      @if (field.isVerified) {
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">✓</span>
+                      }
+                    </div>
+
+                    @if (editingField() === field.id) {
+                      <div class="flex gap-2 mt-1">
+                        <input
+                          hlmInput
+                          type="text"
+                          [(ngModel)]="editValue"
+                          class="flex-1 h-8 text-sm"
+                        />
+                        <button hlmBtn size="sm" (click)="saveField(field)" class="h-8 px-2 text-xs">Save</button>
+                        <button hlmBtn variant="ghost" size="sm" (click)="cancelEdit()" class="h-8 px-2 text-xs">✕</button>
+                      </div>
+                    } @else {
+                      <div class="flex items-center gap-2">
+                        <span class="font-mono text-sm flex-1 truncate" [title]="field.editedValue || field.fieldValue">
+                          {{ field.editedValue || field.fieldValue }}
+                        </span>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Actions -->
+                  @if (editingField() !== field.id) {
+                    <div class="flex gap-1 flex-shrink-0">
+                      <button
+                        hlmBtn
+                        variant="ghost"
+                        size="sm"
+                        class="h-7 w-7 p-0"
+                        (click)="copyToClipboard(field.editedValue || field.fieldValue, field.fieldName)"
+                        title="Copy"
+                      >
+                        📋
+                      </button>
+                      <button
+                        hlmBtn
+                        variant="ghost"
+                        size="sm"
+                        class="h-7 px-2 text-xs"
+                        (click)="startEdit(field)"
+                      >
+                        Edit
+                      </button>
+                      @if (!field.isVerified) {
+                        <button
+                          hlmBtn
+                          variant="ghost"
+                          size="sm"
+                          class="h-7 px-2 text-xs"
+                          (click)="verifyField(field)"
+                        >
+                          Verify
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- View All Button -->
+          @if (doc.extractedFields.length > 5) {
+            <div class="pt-4 text-center">
+              <a hlmBtn variant="outline" [routerLink]="['/documents', doc.id]" (click)="close()">
+                View All {{ doc.extractedFields.length }} Fields →
+              </a>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

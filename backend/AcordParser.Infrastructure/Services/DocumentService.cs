@@ -139,6 +139,37 @@ public class DocumentService : IDocumentService
             query = query.Where(d => d.UploadedAt <= toDateEndOfDay);
         }
 
+        // Apply advanced filters
+        if (request.MinConfidence.HasValue)
+        {
+            // Filter documents where average field confidence >= minConfidence
+            query = query.Where(d => d.ExtractedFields.Any() &&
+                d.ExtractedFields.Average(f => f.Confidence) >= request.MinConfidence.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.FileTypes))
+        {
+            // Parse comma-separated file types (e.g., "PDF,PNG,JPG")
+            var fileTypes = request.FileTypes.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(ft => "." + ft.Trim().ToUpper())
+                .ToList();
+
+            if (fileTypes.Any())
+            {
+                query = query.Where(d => fileTypes.Any(ft => d.FileName.ToUpper().EndsWith(ft)));
+            }
+        }
+
+        if (request.MinFieldCount.HasValue)
+        {
+            query = query.Where(d => d.ExtractedFields.Count >= request.MinFieldCount.Value);
+        }
+
+        if (request.MaxFieldCount.HasValue)
+        {
+            query = query.Where(d => d.ExtractedFields.Count <= request.MaxFieldCount.Value);
+        }
+
         // Get total count before pagination
         var totalCount = await query.CountAsync();
 
@@ -206,9 +237,26 @@ public class DocumentService : IDocumentService
             ))
             .ToList();
 
+        // Generate SAS URL for temporary access to the blob (valid for 1 hour)
+        string? fileUrl = null;
+        if (!string.IsNullOrEmpty(document.BlobStorageUrl))
+        {
+            try
+            {
+                fileUrl = _blobStorage.GenerateSasUrl(document.BlobStorageUrl, expiryMinutes: 60);
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't fail the request
+                // The file preview just won't be available
+                Console.WriteLine($"Failed to generate SAS URL: {ex.Message}");
+            }
+        }
+
         return new DocumentDetailResponse(
             document.Id,
             document.FileName,
+            fileUrl,
             document.Status,
             document.UploadedAt,
             document.ProcessedAt,
