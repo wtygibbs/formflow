@@ -262,7 +262,7 @@ import { debounceTime, Subject } from 'rxjs';
                   <button
                     hlmPaginationLink
                     [isActive]="page === paginationData()!.page"
-                    (click)="goToPage(page)"
+                    (click)="goToPage(page as number)"
                   >
                     {{ page }}
                   </button>
