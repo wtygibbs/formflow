@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { BrnSelectImports } from '@spartan-ng/brain/select';
@@ -15,8 +15,8 @@ import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 import { debounceTime, Subject, Subscription } from 'rxjs';
 import { DocumentListItem, DocumentService, PaginatedResponse, PaginationRequest } from '../../../core/services/document.service';
+import { ProcessingProgress, SignalRService } from '../../../core/services/signalr.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { SignalRService, ProcessingProgress } from '../../../core/services/signalr.service';
 
 @Component({
   selector: 'app-document-list',
@@ -210,7 +210,7 @@ import { SignalRService, ProcessingProgress } from '../../../core/services/signa
                 <button hlmBtn variant="destructive" size="sm" (click)="bulkDelete()">
                   Delete All
                 </button>
-                <button hlmBtn variant="ghost" size="sm" (click)="selectedDocuments.set(new Set())">
+                <button hlmBtn variant="ghost" size="sm" (click)="clearSelectedDocuments()">
                   Clear
                 </button>
               </div>
@@ -828,5 +828,9 @@ export class DocumentListComponent implements OnInit, OnDestroy {
   // View mode toggle
   setViewMode(mode: 'grid' | 'table') {
     this.viewMode.set(mode);
+  }
+
+  clearSelectedDocuments() {
+    this.selectedDocuments.set(new Set());
   }
 }
