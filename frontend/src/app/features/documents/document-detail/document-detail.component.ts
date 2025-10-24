@@ -1,14 +1,19 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/services/document.service';
+import { ToastService } from '../../../core/services/toast.service';
+import { SignalRService, ProcessingProgress } from '../../../core/services/signalr.service';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
+import { HlmProgressImports } from '@spartan-ng/helm/progress';
 
 @Component({
   selector: 'app-document-detail',
@@ -22,13 +27,45 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
     ...HlmBadgeImports,
     ...HlmAlertImports,
     ...HlmSpinnerImports,
-    ...HlmInputImports
+    ...HlmInputImports,
+    ...HlmSkeletonImports,
+    ...HlmProgressImports
   ],
   template: `
     <div class="space-y-6">
       @if (loading()) {
-        <div class="flex justify-center p-16">
-          <hlm-spinner />
+        <!-- Skeleton Loading State -->
+        <div>
+          <hlm-skeleton class="h-4 w-32 mb-4" />
+        </div>
+        <div hlmCard>
+          <div hlmCardContent class="space-y-4">
+            <div class="flex justify-between items-start">
+              <div class="flex-1 space-y-3">
+                <hlm-skeleton class="h-8 w-3/4" />
+                <div class="flex gap-4">
+                  <hlm-skeleton class="h-5 w-24" />
+                  <hlm-skeleton class="h-5 w-32" />
+                  <hlm-skeleton class="h-5 w-28" />
+                </div>
+              </div>
+              <hlm-skeleton class="h-9 w-28" />
+            </div>
+          </div>
+        </div>
+        <div hlmCard>
+          <div hlmCardContent class="space-y-4">
+            @for (i of [1,2,3,4,5]; track i) {
+              <div class="space-y-2 border-b pb-4">
+                <hlm-skeleton class="h-5 w-48" />
+                <hlm-skeleton class="h-6 w-full" />
+                <div class="flex gap-2">
+                  <hlm-skeleton class="h-4 w-20" />
+                  <hlm-skeleton class="h-4 w-16" />
+                </div>
+              </div>
+            }
+          </div>
         </div>
       } @else if (document(); as doc) {
         <!-- Header -->
@@ -84,10 +121,34 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
         }
 
         @if (doc.status === 1) {
-          <div hlmAlert class="flex items-center gap-2">
-            <hlm-spinner class="size-4" />
-            <p hlmAlertDescription>Document is currently being processed. This may take a few minutes...</p>
-          </div>
+          @if (processingProgress(); as progress) {
+            <div hlmCard>
+              <div hlmCardContent class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-lg font-semibold">Processing Document...</h3>
+                  <span class="text-2xl font-bold text-primary">{{ progress.percentComplete }}%</span>
+                </div>
+                <hlm-progress [value]="progress.percentComplete" class="h-3" />
+                <div class="flex justify-between items-center text-sm">
+                  <span class="text-muted-foreground">{{ progress.currentStep }}</span>
+                  @if (progress.estimatedSecondsRemaining) {
+                    <span class="text-muted-foreground">ETA: {{ progress.estimatedSecondsRemaining }}s</span>
+                  }
+                </div>
+                @if (progress.processedFields > 0) {
+                  <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>Extracting fields:</span>
+                    <span class="font-medium text-foreground">{{ progress.processedFields }} / {{ progress.totalFields }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          } @else {
+            <div hlmAlert class="flex items-center gap-2">
+              <hlm-spinner class="size-4" />
+              <p hlmAlertDescription>Document is currently being processed. This may take a few minutes...</p>
+            </div>
+          }
         }
 
         <!-- Extracted Fields -->
@@ -188,21 +249,56 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
   `,
   styles: []
 })
-export class DocumentDetailComponent implements OnInit {
+export class DocumentDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private documentService = inject(DocumentService);
+  private toastService = inject(ToastService);
+  private signalRService = inject(SignalRService);
 
   document = signal<DocumentDetail | null>(null);
   loading = signal(true);
   editingField = signal<string | null>(null);
   editValue = '';
+  processingProgress = signal<ProcessingProgress | null>(null);
+  private subscriptions: Subscription[] = [];
+  private currentDocumentId?: string;
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
+      this.currentDocumentId = id;
       this.loadDocument(id);
+      this.setupSignalRSubscriptions();
     }
+  }
+
+  ngOnDestroy() {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  private setupSignalRSubscriptions() {
+    const progressSub = this.signalRService.processingProgress$.subscribe(progress => {
+      if (progress.documentId === this.currentDocumentId) {
+        this.processingProgress.set(progress);
+      }
+    });
+
+    const completeSub = this.signalRService.processingComplete$.subscribe(complete => {
+      if (complete.documentId === this.currentDocumentId) {
+        this.processingProgress.set(null);
+        if (complete.success) {
+          this.toastService.success('Document processed successfully!', 'All fields have been extracted');
+        } else {
+          this.toastService.error('Document processing failed', 'Please check the error details');
+        }
+        if (this.currentDocumentId) {
+          this.loadDocument(this.currentDocumentId);
+        }
+      }
+    });
+
+    this.subscriptions.push(progressSub, completeSub);
   }
 
   loadDocument(id: string) {
@@ -213,6 +309,7 @@ export class DocumentDetailComponent implements OnInit {
       },
       error: () => {
         this.loading.set(false);
+        this.toastService.error('Document not found', 'The requested document could not be loaded');
         this.router.navigate(['/documents']);
       }
     });
@@ -229,27 +326,44 @@ export class DocumentDetailComponent implements OnInit {
   }
 
   saveField(field: ExtractedField) {
-    this.documentService.updateField(field.id, this.editValue, false).subscribe({
-      next: () => {
-        field.editedValue = this.editValue;
-        this.editingField.set(null);
-        this.editValue = '';
-      }
+    const updatePromise = this.documentService.updateField(field.id, this.editValue, false).toPromise();
+
+    this.toastService.promise(updatePromise!, {
+      loading: 'Saving field...',
+      success: 'Field updated successfully',
+      error: 'Failed to update field'
+    });
+
+    updatePromise!.then(() => {
+      field.editedValue = this.editValue;
+      this.editingField.set(null);
+      this.editValue = '';
+    }).catch(() => {
+      // Error already shown via toast
     });
   }
 
   verifyField(field: ExtractedField) {
     const value = field.editedValue || field.fieldValue;
-    this.documentService.updateField(field.id, value, true).subscribe({
-      next: () => {
-        field.isVerified = true;
-      }
+    const verifyPromise = this.documentService.updateField(field.id, value, true).toPromise();
+
+    this.toastService.promise(verifyPromise!, {
+      loading: 'Verifying field...',
+      success: 'Field verified successfully',
+      error: 'Failed to verify field'
+    });
+
+    verifyPromise!.then(() => {
+      field.isVerified = true;
+    }).catch(() => {
+      // Error already shown via toast
     });
   }
 
   exportCsv() {
     const doc = this.document();
     if (doc) {
+      this.toastService.success('Downloading CSV...', 'Your export will start shortly');
       this.documentService.downloadCsv(doc.id, doc.fileName);
     }
   }

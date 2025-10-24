@@ -89,6 +89,10 @@ builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 builder.Services.AddScoped<IAzureDocumentIntelligenceService, AzureDocumentIntelligenceService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<INotificationService, AcordParser.API.Services.SignalRNotificationService>();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -341,6 +345,37 @@ app.MapGet("/api/documents", async (IDocumentService documentService, ClaimsPrin
 .WithName("GetDocuments")
 .WithTags("Documents");
 
+app.MapGet("/api/documents/paginated", async (
+    IDocumentService documentService,
+    ClaimsPrincipal user,
+    int page = 1,
+    int pageSize = 10,
+    string? search = null,
+    string? status = null,
+    DateTime? fromDate = null,
+    DateTime? toDate = null,
+    string? sortBy = "UploadedAt",
+    string? sortOrder = "desc") =>
+{
+    var userId = GetUserId(user);
+    var request = new PaginationRequest
+    {
+        Page = page,
+        PageSize = pageSize,
+        Search = search,
+        Status = status,
+        FromDate = fromDate,
+        ToDate = toDate,
+        SortBy = sortBy,
+        SortOrder = sortOrder
+    };
+    var documents = await documentService.GetUserDocumentsPaginatedAsync(userId, request);
+    return Results.Ok(documents);
+})
+.RequireAuthorization()
+.WithName("GetDocumentsPaginated")
+.WithTags("Documents");
+
 app.MapGet("/api/documents/{documentId}", async (Guid documentId, IDocumentService documentService, ClaimsPrincipal user) =>
 {
     var userId = GetUserId(user);
@@ -377,6 +412,16 @@ app.MapGet("/api/documents/{documentId}/export", async (Guid documentId, IDocume
 })
 .RequireAuthorization()
 .WithName("ExportDocument")
+.WithTags("Documents");
+
+app.MapGet("/api/documents/dashboard/metrics", async (IDocumentService documentService, ClaimsPrincipal user) =>
+{
+    var userId = GetUserId(user);
+    var metrics = await documentService.GetDashboardMetricsAsync(userId);
+    return Results.Ok(metrics);
+})
+.RequireAuthorization()
+.WithName("GetDashboardMetrics")
 .WithTags("Documents");
 
 // ==================== SUBSCRIPTION ENDPOINTS ====================
@@ -487,6 +532,10 @@ app.MapHealthChecks("/api/health/live", new HealthCheckOptions
 .WithName("LivenessCheck")
 .WithTags("Health")
 .AllowAnonymous();
+
+// ==================== SIGNALR HUBS ====================
+
+app.MapHub<AcordParser.API.Hubs.DocumentProcessingHub>("/hubs/document-processing");
 
 Log.Information("ACORD Parser API started successfully");
 app.Run();

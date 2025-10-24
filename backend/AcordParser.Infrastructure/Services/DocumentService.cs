@@ -15,6 +15,7 @@ public class DocumentService : IDocumentService
     private readonly IBlobStorageService _blobStorage;
     private readonly IAzureDocumentIntelligenceService _documentIntelligence;
     private readonly ISubscriptionService _subscriptionService;
+    private readonly INotificationService? _notificationService;
 
     private static readonly string[] AllowedExtensions = { ".pdf", ".png", ".jpg", ".jpeg", ".tiff" };
     private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
@@ -23,12 +24,14 @@ public class DocumentService : IDocumentService
         ApplicationDbContext context,
         IBlobStorageService blobStorage,
         IAzureDocumentIntelligenceService documentIntelligence,
-        ISubscriptionService subscriptionService)
+        ISubscriptionService subscriptionService,
+        INotificationService? notificationService = null)
     {
         _context = context;
         _blobStorage = blobStorage;
         _documentIntelligence = documentIntelligence;
         _subscriptionService = subscriptionService;
+        _notificationService = notificationService;
     }
 
     public async Task<UploadDocumentResponse> UploadDocumentAsync(string userId, IFormFile file)
@@ -102,6 +105,83 @@ public class DocumentService : IDocumentService
             .ToListAsync();
 
         return documents;
+    }
+
+    public async Task<PaginatedResponse<DocumentListResponse>> GetUserDocumentsPaginatedAsync(string userId, PaginationRequest request)
+    {
+        // Build base query
+        var query = _context.Documents
+            .Where(d => d.UserId == userId)
+            .AsQueryable();
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var searchTerm = request.Search.ToLower();
+            query = query.Where(d => d.FileName.ToLower().Contains(searchTerm));
+        }
+
+        // Apply status filter
+        if (!string.IsNullOrWhiteSpace(request.Status) && Enum.TryParse<DocumentStatus>(request.Status, true, out var status))
+        {
+            query = query.Where(d => d.Status == status);
+        }
+
+        // Apply date range filters
+        if (request.FromDate.HasValue)
+        {
+            query = query.Where(d => d.UploadedAt >= request.FromDate.Value);
+        }
+
+        if (request.ToDate.HasValue)
+        {
+            var toDateEndOfDay = request.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(d => d.UploadedAt <= toDateEndOfDay);
+        }
+
+        // Get total count before pagination
+        var totalCount = await query.CountAsync();
+
+        // Apply sorting
+        query = (request.SortBy?.ToLower(), request.SortOrder?.ToLower()) switch
+        {
+            ("filename", "asc") => query.OrderBy(d => d.FileName),
+            ("filename", "desc") => query.OrderByDescending(d => d.FileName),
+            ("status", "asc") => query.OrderBy(d => d.Status),
+            ("status", "desc") => query.OrderByDescending(d => d.Status),
+            ("uploadedat", "asc") => query.OrderBy(d => d.UploadedAt),
+            ("processedat", "asc") => query.OrderBy(d => d.ProcessedAt),
+            ("processedat", "desc") => query.OrderByDescending(d => d.ProcessedAt),
+            _ => query.OrderByDescending(d => d.UploadedAt) // Default sort
+        };
+
+        // Apply pagination
+        var documents = await query
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .Select(d => new DocumentListResponse(
+                d.Id,
+                d.FileName,
+                d.Status,
+                d.UploadedAt,
+                d.ProcessedAt,
+                d.ExtractedFields.Count
+            ))
+            .ToListAsync();
+
+        // Calculate pagination metadata
+        var totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
+
+        return new PaginatedResponse<DocumentListResponse>
+        {
+            Data = documents,
+            TotalCount = totalCount,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalPages = totalPages,
+            HasPreviousPage = request.Page > 1,
+            HasNextPage = request.Page < totalPages
+        };
     }
 
     public async Task<DocumentDetailResponse?> GetDocumentDetailAsync(Guid documentId, string userId)
@@ -191,19 +271,33 @@ public class DocumentService : IDocumentService
             return;
         }
 
+        var startTime = DateTime.UtcNow;
+
         try
         {
             // Update status to processing
             document.Status = DocumentStatus.Processing;
             await _context.SaveChangesAsync();
 
-            // Download document from blob storage and analyze with Azure Document Intelligence
+            // Step 1: Downloading (0-20%)
+            await SendProgressAsync(document.UserId, documentId, document.FileName, 10, "Downloading document...", 0, 0);
+
+            // Download document from blob storage
             await using (var documentStream = await _blobStorage.DownloadFileAsync(document.BlobStorageUrl))
             {
+                // Step 2: Analyzing (20-60%)
+                await SendProgressAsync(document.UserId, documentId, document.FileName, 30, "Analyzing document with AI...", 0, 0);
+
                 // Analyze with Azure Document Intelligence
                 var extractedData = await _documentIntelligence.AnalyzeAcord125Async(documentStream, document.FileName);
 
-                // Save extracted fields
+                // Step 3: Extracting fields (60-90%)
+                var totalFields = extractedData.Count;
+                var processedFields = 0;
+
+                await SendProgressAsync(document.UserId, documentId, document.FileName, 70, $"Extracting {totalFields} fields...", processedFields, totalFields);
+
+                // Save extracted fields with progress tracking
                 foreach (var kvp in extractedData)
                 {
                     var field = new ExtractedField
@@ -218,23 +312,200 @@ public class DocumentService : IDocumentService
                     };
 
                     _context.ExtractedFields.Add(field);
+                    processedFields++;
+
+                    // Send progress update every 10 fields or at the end
+                    if (processedFields % 10 == 0 || processedFields == totalFields)
+                    {
+                        var percent = 70 + (int)(20.0 * processedFields / totalFields);
+                        await SendProgressAsync(document.UserId, documentId, document.FileName, percent,
+                            $"Extracting fields... ({processedFields}/{totalFields})", processedFields, totalFields);
+                    }
                 }
             }
+
+            // Step 4: Finalizing (90-100%)
+            await SendProgressAsync(document.UserId, documentId, document.FileName, 95, "Finalizing...", 0, 0);
 
             // Update document status
             document.Status = DocumentStatus.Completed;
             document.ProcessedAt = DateTime.UtcNow;
-
             await _context.SaveChangesAsync();
 
             // Increment user's document count
             await _subscriptionService.IncrementDocumentCountAsync(document.UserId);
+
+            // Step 5: Complete
+            await SendProgressAsync(document.UserId, documentId, document.FileName, 100, "Processing complete!", 0, 0);
+
+            if (_notificationService != null)
+            {
+                await _notificationService.SendProcessingCompleteAsync(document.UserId, documentId, true);
+                await _notificationService.SendDashboardUpdateAsync(document.UserId);
+            }
         }
         catch (Exception ex)
         {
             document.Status = DocumentStatus.Failed;
             document.ProcessingError = ex.Message;
             await _context.SaveChangesAsync();
+
+            if (_notificationService != null)
+            {
+                await _notificationService.SendProcessingCompleteAsync(document.UserId, documentId, false);
+                await _notificationService.SendDashboardUpdateAsync(document.UserId);
+            }
         }
+    }
+
+    private async Task SendProgressAsync(string userId, Guid documentId, string fileName, int percent, string step, int processedFields, int totalFields)
+    {
+        if (_notificationService == null) return;
+
+        var progress = new ProcessingProgress
+        {
+            DocumentId = documentId,
+            FileName = fileName,
+            Status = "Processing",
+            PercentComplete = percent,
+            CurrentStep = step,
+            ProcessedFields = processedFields,
+            TotalFields = totalFields,
+            EstimatedSecondsRemaining = percent < 100 ? (int?)((100 - percent) * 0.5) : null
+        };
+
+        await _notificationService.SendProcessingProgressAsync(userId, progress);
+    }
+
+    public async Task<DashboardMetrics> GetDashboardMetricsAsync(string userId)
+    {
+        var now = DateTime.UtcNow;
+        var today = now.Date;
+        var weekAgo = now.AddDays(-7);
+        var monthAgo = now.AddDays(-30);
+
+        var documents = await _context.Documents
+            .Where(d => d.UserId == userId)
+            .Include(d => d.ExtractedFields)
+            .ToListAsync();
+
+        // Document Stats
+        var documentStats = new DocumentStats
+        {
+            TotalDocuments = documents.Count,
+            CompletedDocuments = documents.Count(d => d.Status == DocumentStatus.Completed),
+            ProcessingDocuments = documents.Count(d => d.Status == DocumentStatus.Processing),
+            FailedDocuments = documents.Count(d => d.Status == DocumentStatus.Failed),
+            UploadedDocuments = documents.Count(d => d.Status == DocumentStatus.Uploaded)
+        };
+
+        // Processing Stats
+        var completedDocs = documents.Where(d => d.Status == DocumentStatus.Completed && d.ProcessedAt.HasValue).ToList();
+        var avgProcessingTime = completedDocs.Any()
+            ? completedDocs
+                .Where(d => d.ProcessedAt.HasValue)
+                .Average(d => (d.ProcessedAt!.Value - d.UploadedAt).TotalSeconds)
+            : 0;
+
+        var processingStats = new ProcessingStats
+        {
+            AverageProcessingTimeSeconds = Math.Round(avgProcessingTime, 2),
+            SuccessRate = documents.Count > 0
+                ? Math.Round((double)documentStats.CompletedDocuments / documents.Count * 100, 2)
+                : 0,
+            TotalFieldsExtracted = documents.SelectMany(d => d.ExtractedFields).Count(),
+            DocumentsProcessedToday = completedDocs.Count(d => d.ProcessedAt!.Value.Date == today),
+            DocumentsProcessedThisWeek = completedDocs.Count(d => d.ProcessedAt!.Value >= weekAgo),
+            DocumentsProcessedThisMonth = completedDocs.Count(d => d.ProcessedAt!.Value >= monthAgo)
+        };
+
+        // Quality Metrics
+        var allFields = documents.SelectMany(d => d.ExtractedFields).ToList();
+        var highConfidence = allFields.Count(f => f.Confidence > 0.8);
+        var mediumConfidence = allFields.Count(f => f.Confidence > 0.6 && f.Confidence <= 0.8);
+        var lowConfidence = allFields.Count(f => f.Confidence <= 0.6);
+        var verifiedFields = allFields.Count(f => f.IsVerified);
+
+        var qualityMetrics = new QualityMetrics
+        {
+            AverageConfidence = allFields.Any()
+                ? Math.Round(allFields.Average(f => f.Confidence) * 100, 2)
+                : 0,
+            HighConfidenceFields = highConfidence,
+            MediumConfidenceFields = mediumConfidence,
+            LowConfidenceFields = lowConfidence,
+            VerifiedFields = verifiedFields,
+            VerificationRate = allFields.Any()
+                ? Math.Round((double)verifiedFields / allFields.Count * 100, 2)
+                : 0
+        };
+
+        // Processing Trends (last 30 days)
+        var processingTrends = new List<ProcessingTrend>();
+        for (int i = 29; i >= 0; i--)
+        {
+            var date = today.AddDays(-i);
+            var nextDate = date.AddDays(1);
+
+            var docsOnDate = completedDocs.Where(d => d.ProcessedAt!.Value >= date && d.ProcessedAt.Value < nextDate).ToList();
+            var failedOnDate = documents.Where(d =>
+                d.Status == DocumentStatus.Failed &&
+                d.UploadedAt >= date &&
+                d.UploadedAt < nextDate).ToList();
+
+            processingTrends.Add(new ProcessingTrend
+            {
+                Date = date,
+                DocumentsProcessed = docsOnDate.Count + failedOnDate.Count,
+                SuccessfulDocuments = docsOnDate.Count,
+                FailedDocuments = failedOnDate.Count
+            });
+        }
+
+        // Status Breakdown
+        var statusBreakdown = new List<StatusBreakdown>
+        {
+            new StatusBreakdown
+            {
+                Status = "Uploaded",
+                Count = documentStats.UploadedDocuments,
+                Percentage = documents.Count > 0
+                    ? Math.Round((double)documentStats.UploadedDocuments / documents.Count * 100, 2)
+                    : 0
+            },
+            new StatusBreakdown
+            {
+                Status = "Processing",
+                Count = documentStats.ProcessingDocuments,
+                Percentage = documents.Count > 0
+                    ? Math.Round((double)documentStats.ProcessingDocuments / documents.Count * 100, 2)
+                    : 0
+            },
+            new StatusBreakdown
+            {
+                Status = "Completed",
+                Count = documentStats.CompletedDocuments,
+                Percentage = documents.Count > 0
+                    ? Math.Round((double)documentStats.CompletedDocuments / documents.Count * 100, 2)
+                    : 0
+            },
+            new StatusBreakdown
+            {
+                Status = "Failed",
+                Count = documentStats.FailedDocuments,
+                Percentage = documents.Count > 0
+                    ? Math.Round((double)documentStats.FailedDocuments / documents.Count * 100, 2)
+                    : 0
+            }
+        };
+
+        return new DashboardMetrics
+        {
+            DocumentStats = documentStats,
+            ProcessingStats = processingStats,
+            QualityMetrics = qualityMetrics,
+            ProcessingTrends = processingTrends,
+            StatusBreakdown = statusBreakdown
+        };
     }
 }

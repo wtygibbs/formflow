@@ -1,16 +1,19 @@
-import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet, RouterLink, Router } from '@angular/router';
+import { Component, inject, effect } from '@angular/core';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmToasterImports } from '@spartan-ng/helm/sonner';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
-import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { SignalRService } from './core/services/signalr.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, ...HlmButtonImports],
+  imports: [CommonModule, RouterOutlet, RouterLink, ...HlmButtonImports, HlmToasterImports],
   template: `
     <div class="min-h-screen flex flex-col bg-background">
+      <hlm-toaster />
       <header class="bg-card border-b sticky top-0 z-50">
         <div class="container mx-auto px-4 py-3 flex items-center justify-between max-w-7xl">
           <h1 class="text-xl font-semibold cursor-pointer hover:opacity-80 transition-opacity" routerLink="/">
@@ -64,13 +67,33 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 export class AppComponent {
   authService = inject(AuthService);
   themeService = inject(ThemeService);
+  signalRService = inject(SignalRService);
   router = inject(Router);
+
+  constructor() {
+    // Initialize SignalR connection when user is authenticated
+    effect(() => {
+      if (this.authService.isAuthenticated()) {
+        const token = this.authService.getToken();
+        if (token && !this.signalRService.isConnected()) {
+          this.signalRService.startConnection(token).catch(error => {
+            console.error('Failed to start SignalR connection:', error);
+          });
+        }
+      } else {
+        if (this.signalRService.isConnected()) {
+          this.signalRService.stopConnection();
+        }
+      }
+    });
+  }
 
   toggleTheme() {
     this.themeService.toggleTheme();
   }
 
   logout() {
+    this.signalRService.stopConnection();
     this.authService.logout();
     this.router.navigate(['/login']);
   }

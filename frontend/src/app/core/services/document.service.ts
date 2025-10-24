@@ -37,6 +37,27 @@ export interface UploadDocumentResponse {
   status: number;
 }
 
+export interface PaginationRequest {
+  page: number;
+  pageSize: number;
+  search?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -55,6 +76,25 @@ export class DocumentService {
 
   getDocuments(): Observable<DocumentListItem[]> {
     return this.http.get<DocumentListItem[]>(`${environment.apiUrl}/documents`);
+  }
+
+  getDocumentsPaginated(params: PaginationRequest): Observable<PaginatedResponse<DocumentListItem>> {
+    const queryParams: any = {
+      page: params.page.toString(),
+      pageSize: params.pageSize.toString(),
+    };
+
+    if (params.search) queryParams.search = params.search;
+    if (params.status) queryParams.status = params.status;
+    if (params.fromDate) queryParams.fromDate = params.fromDate;
+    if (params.toDate) queryParams.toDate = params.toDate;
+    if (params.sortBy) queryParams.sortBy = params.sortBy;
+    if (params.sortOrder) queryParams.sortOrder = params.sortOrder;
+
+    return this.http.get<PaginatedResponse<DocumentListItem>>(
+      `${environment.apiUrl}/documents/paginated`,
+      { params: queryParams }
+    );
   }
 
   getDocument(id: string): Observable<DocumentDetail> {
