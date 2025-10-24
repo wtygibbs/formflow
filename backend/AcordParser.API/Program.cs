@@ -549,3 +549,6 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+// Make the implicit Program class public for testing
+public partial class Program { }
