@@ -1,0 +1,73 @@
+<div hlmCard class="hover:shadow-md transition-shadow relative">
+  <div hlmCardContent>
+    <!-- Selection Checkbox -->
+    <div class="absolute top-3 left-3">
+      <input
+        type="checkbox"
+        [checked]="isSelected()"
+        (change)="onToggleSelection()"
+        class="w-4 h-4 rounded border-gray-300 cursor-pointer"
+      />
+    </div>
+
+    <div class="flex justify-between items-start mb-3 pl-8">
+      <h3 class="text-base font-semibold truncate flex-1 mr-2" [title]="document().fileName">
+        {{ document().fileName }}
+      </h3>
+      @switch (document().status) {
+        @case (0) {
+          <span hlmBadge variant="secondary">Uploaded</span>
+        }
+        @case (1) {
+          <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
+        }
+        @case (2) {
+          <span hlmBadge class="bg-green-600 text-white">Completed</span>
+        }
+        @case (3) {
+          <span hlmBadge variant="destructive">Failed</span>
+        }
+      }
+    </div>
+
+    <!-- Real-time Processing Progress -->
+    @if (document().status === 1 && processingProgress(); as progress) {
+      <div class="space-y-2 mb-3">
+        <div class="flex justify-between text-xs">
+          <span class="text-muted-foreground">{{ progress.currentStep }}</span>
+          <span class="font-medium">{{ progress.percentComplete }}%</span>
+        </div>
+        <hlm-progress [value]="progress.percentComplete" class="h-2" />
+        @if (progress.processedFields > 0) {
+          <p class="text-xs text-muted-foreground">
+            Fields: {{ progress.processedFields }}/{{ progress.totalFields }}
+            @if (progress.estimatedSecondsRemaining) {
+              • ETA: {{ progress.estimatedSecondsRemaining }}s
+            }
+          </p>
+        }
+      </div>
+    }
+
+    <div class="space-y-1 text-sm text-muted-foreground">
+      <p>Uploaded: {{ formatDate(document().uploadedAt) }}</p>
+      @if (document().processedAt) {
+        <p>Processed: {{ formatDate(document().processedAt!) }}</p>
+      }
+      @if (document().status !== 1) {
+        <p>Fields: {{ document().extractedFieldsCount }}</p>
+      }
+    </div>
+
+    <div class="flex gap-2 mt-4">
+      <a hlmBtn size="sm" class="flex-1" [routerLink]="['/documents', document().id]">
+        View
+      </a>
+      @if (document().status === 2) {
+        <button hlmBtn variant="outline" size="sm" (click)="onDownloadCsv()">
+          CSV
+        </button>
+      }
+    </div>
+  </div>
+</div>
