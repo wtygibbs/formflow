@@ -11,13 +11,15 @@ import { ProcessingProgress } from '../../../core/services/signalr.service';
   template: `
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       @for (doc of documents(); track doc.id) {
-        <app-document-card
-          [document]="doc"
-          [isSelected]="selectedDocuments().has(doc.id)"
-          [processingProgress]="getProcessingProgress(doc.id)"
-          (selectionToggled)="onSelectionToggled($event)"
-          (downloadCsv)="onDownloadCsv($event)"
-        />
+        <div (click)="onDocumentClicked(doc.id)" class="cursor-pointer">
+          <app-document-card
+            [document]="doc"
+            [isSelected]="selectedDocuments().has(doc.id)"
+            [processingProgress]="getProcessingProgress(doc.id)"
+            (selectionToggled)="onSelectionToggled($event)"
+            (downloadCsv)="onDownloadCsv($event)"
+          />
+        </div>
       }
     </div>
   `
@@ -31,6 +33,7 @@ export class DocumentGridViewComponent {
   // Outputs
   selectionToggled = output<string>();
   downloadCsv = output<{ id: string; fileName: string }>();
+  documentClicked = output<string>();
 
   onSelectionToggled(documentId: string) {
     this.selectionToggled.emit(documentId);
@@ -38,6 +41,10 @@ export class DocumentGridViewComponent {
 
   onDownloadCsv(data: { id: string; fileName: string }) {
     this.downloadCsv.emit(data);
+  }
+
+  onDocumentClicked(documentId: string) {
+    this.documentClicked.emit(documentId);
   }
 
   getProcessingProgress(documentId: string): ProcessingProgress | null {

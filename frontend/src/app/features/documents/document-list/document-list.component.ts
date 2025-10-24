@@ -14,6 +14,8 @@ import { DocumentUploadZoneComponent } from '../document-upload-zone/document-up
 import { DocumentFiltersComponent } from '../document-filters/document-filters.component';
 import { DocumentGridViewComponent } from '../document-grid-view/document-grid-view.component';
 import { DocumentTableViewComponent } from '../document-table-view/document-table-view.component';
+import { AdvancedFiltersPanelComponent, AdvancedFilters } from '../advanced-filters-panel/advanced-filters-panel.component';
+import { DocumentPreviewPanelComponent } from '../document-preview-panel/document-preview-panel.component';
 
 @Component({
   selector: 'app-document-list',
@@ -24,6 +26,8 @@ import { DocumentTableViewComponent } from '../document-table-view/document-tabl
     DocumentFiltersComponent,
     DocumentGridViewComponent,
     DocumentTableViewComponent,
+    AdvancedFiltersPanelComponent,
+    DocumentPreviewPanelComponent,
     ...HlmCardImports,
     ...HlmButtonImports,
     ...HlmBadgeImports,
@@ -54,6 +58,18 @@ export class DocumentListComponent {
   selectedDocuments = signal<Set<string>>(new Set());
   selectAllChecked = signal(false);
   loading = signal(false);
+
+  // New: Panel states
+  isAdvancedFiltersOpen = signal(false);
+  isPreviewPanelOpen = signal(false);
+  previewDocumentId = signal<string>('');
+  advancedFilters = signal<AdvancedFilters>({
+    dateRange: 'all',
+    minConfidence: 0,
+    fileTypes: [],
+    minFieldCount: undefined,
+    maxFieldCount: undefined
+  });
 
   // Search debounce subject
   private searchSubject = new Subject<string>();
@@ -360,5 +376,30 @@ export class DocumentListComponent {
     }
 
     return pages;
+  }
+
+  // New: Panel management methods
+  toggleAdvancedFilters() {
+    this.isAdvancedFiltersOpen.update(v => !v);
+  }
+
+  closeAdvancedFilters() {
+    this.isAdvancedFiltersOpen.set(false);
+  }
+
+  applyAdvancedFilters(filters: AdvancedFilters) {
+    this.advancedFilters.set(filters);
+    this.currentPage.set(1);
+    this.triggerLoad();
+    this.toastService.success('Filters applied', 'Document list updated');
+  }
+
+  openDocumentPreview(documentId: string) {
+    this.previewDocumentId.set(documentId);
+    this.isPreviewPanelOpen.set(true);
+  }
+
+  closePreviewPanel() {
+    this.isPreviewPanelOpen.set(false);
   }
 }

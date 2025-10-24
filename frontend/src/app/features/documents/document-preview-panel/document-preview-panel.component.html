@@ -1,0 +1,172 @@
+<!-- Overlay -->
+@if (isOpen()) {
+  <div class="fixed inset-0 bg-black/50 z-40" (click)="close()"></div>
+}
+
+<!-- Slide-out Panel -->
+<div
+  class="fixed top-0 right-0 h-full w-full md:w-[600px] bg-background shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col"
+  [class.translate-x-0]="isOpen()"
+  [class.translate-x-full]="!isOpen()"
+>
+  @if (loading()) {
+    <!-- Loading State -->
+    <div class="flex items-center justify-between p-6 border-b">
+      <hlm-skeleton class="h-6 w-48" />
+      <button hlmBtn variant="ghost" size="sm" (click)="close()">✕</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6 space-y-4">
+      @for (i of [1,2,3,4,5]; track i) {
+        <div class="space-y-2 border-b pb-4">
+          <hlm-skeleton class="h-5 w-32" />
+          <hlm-skeleton class="h-6 w-full" />
+        </div>
+      }
+    </div>
+  } @else if (document(); as doc) {
+    <!-- Header -->
+    <div class="flex items-start justify-between p-6 border-b gap-4">
+      <div class="flex-1 min-w-0">
+        <h2 class="text-xl font-semibold truncate mb-2" [title]="doc.fileName">
+          {{ doc.fileName }}
+        </h2>
+        <div class="flex flex-wrap gap-2 text-sm">
+          @switch (doc.status) {
+            @case (0) {
+              <span hlmBadge variant="secondary">Uploaded</span>
+            }
+            @case (1) {
+              <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
+            }
+            @case (2) {
+              <span hlmBadge class="bg-green-600 text-white">Completed</span>
+            }
+            @case (3) {
+              <span hlmBadge variant="destructive">Failed</span>
+            }
+          }
+          <span class="text-muted-foreground">{{ formatDate(doc.uploadedAt) }}</span>
+        </div>
+      </div>
+      <button hlmBtn variant="ghost" size="sm" (click)="close()">
+        ✕
+      </button>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="px-6 py-4 border-b flex flex-wrap gap-2">
+      <a hlmBtn variant="outline" size="sm" [routerLink]="['/documents', doc.id]" (click)="close()">
+        Full View
+      </a>
+      <button hlmBtn variant="outline" size="sm" (click)="exportCsv()" [disabled]="doc.status !== 2">
+        Export CSV
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-6">
+      @if (doc.extractedFields.length === 0) {
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+          <p class="text-muted-foreground">No fields extracted yet</p>
+        </div>
+      } @else {
+        <!-- Preview: Top 5 Fields -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">Extracted Fields</h3>
+            <span class="text-sm text-muted-foreground">
+              Showing {{ topFields().length }} of {{ doc.extractedFields.length }}
+            </span>
+          </div>
+
+          @for (field of topFields(); track field.id) {
+            <div class="border rounded-lg p-4 space-y-3"
+                 [class.bg-green-600/5]="field.isVerified"
+                 [class.border-green-600/50]="field.isVerified">
+              <!-- Field Header -->
+              <div class="flex justify-between items-start gap-2">
+                <div class="flex-1">
+                  <h4 class="font-medium text-sm">{{ field.fieldName }}</h4>
+                </div>
+                <div class="flex gap-1.5 items-center flex-shrink-0">
+                  @switch (getConfidenceClass(field.confidence)) {
+                    @case ('high') {
+                      <span hlmBadge class="bg-green-600 text-white text-xs">
+                        {{ (field.confidence * 100).toFixed(0) }}%
+                      </span>
+                    }
+                    @case ('medium') {
+                      <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600 text-xs">
+                        {{ (field.confidence * 100).toFixed(0) }}%
+                      </span>
+                    }
+                    @case ('low') {
+                      <span hlmBadge variant="destructive" class="text-xs">
+                        {{ (field.confidence * 100).toFixed(0) }}%
+                      </span>
+                    }
+                  }
+                  @if (field.isVerified) {
+                    <span hlmBadge class="bg-green-600 text-white text-xs">✓</span>
+                  }
+                </div>
+              </div>
+
+              <!-- Field Value -->
+              @if (editingField() === field.id) {
+                <div class="space-y-2">
+                  <input
+                    hlmInput
+                    type="text"
+                    [(ngModel)]="editValue"
+                    class="w-full text-sm"
+                  />
+                  <div class="flex gap-2">
+                    <button hlmBtn size="sm" (click)="saveField(field)">Save</button>
+                    <button hlmBtn variant="outline" size="sm" (click)="cancelEdit()">Cancel</button>
+                  </div>
+                </div>
+              } @else {
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between gap-2 bg-muted/50 rounded px-3 py-2">
+                    <span class="font-mono text-sm flex-1 truncate" [title]="field.editedValue || field.fieldValue">
+                      {{ field.editedValue || field.fieldValue }}
+                    </span>
+                    <button
+                      hlmBtn
+                      variant="ghost"
+                      size="sm"
+                      class="h-7 px-2"
+                      (click)="copyToClipboard(field.editedValue || field.fieldValue, field.fieldName)"
+                    >
+                      📋
+                    </button>
+                  </div>
+                  <div class="flex gap-2">
+                    <button hlmBtn variant="outline" size="sm" (click)="startEdit(field)">
+                      Edit
+                    </button>
+                    @if (!field.isVerified) {
+                      <button hlmBtn size="sm" (click)="verifyField(field)">
+                        Verify
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- View All Button -->
+          @if (doc.extractedFields.length > 5) {
+            <div class="pt-4 text-center">
+              <a hlmBtn variant="outline" [routerLink]="['/documents', doc.id]" (click)="close()">
+                View All {{ doc.extractedFields.length }} Fields →
+              </a>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

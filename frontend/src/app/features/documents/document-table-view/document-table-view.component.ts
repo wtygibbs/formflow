@@ -31,6 +31,7 @@ export class DocumentTableViewComponent {
   selectionToggled = output<string>();
   selectAllToggled = output<void>();
   downloadCsv = output<{ id: string; fileName: string }>();
+  documentClicked = output<string>();
 
   onToggleSelection(documentId: string) {
     this.selectionToggled.emit(documentId);
@@ -42,6 +43,10 @@ export class DocumentTableViewComponent {
 
   onDownloadCsv(id: string, fileName: string) {
     this.downloadCsv.emit({ id, fileName });
+  }
+
+  onDocumentClicked(documentId: string) {
+    this.documentClicked.emit(documentId);
   }
 
   getProcessingProgress(documentId: string): ProcessingProgress | null {
