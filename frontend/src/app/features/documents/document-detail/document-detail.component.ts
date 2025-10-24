@@ -223,11 +223,23 @@ import { HlmProgressImports } from '@spartan-ng/helm/progress';
                     } @else {
                       <div class="flex justify-between items-center gap-4">
                         <div class="flex-1">
-                          <div class="bg-muted rounded px-3 py-2">
+                          <div class="bg-muted rounded px-3 py-2 flex items-center justify-between group">
                             <span class="font-mono text-sm">{{ field.editedValue || field.fieldValue }}</span>
-                            @if (field.editedValue) {
-                              <span hlmBadge variant="secondary" class="ml-2 text-xs">Edited</span>
-                            }
+                            <div class="flex items-center gap-2">
+                              @if (field.editedValue) {
+                                <span hlmBadge variant="secondary" class="text-xs">Edited</span>
+                              }
+                              <button
+                                hlmBtn
+                                variant="ghost"
+                                size="sm"
+                                class="h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                (click)="copyToClipboard(field.editedValue || field.fieldValue, field.fieldName)"
+                                title="Copy to clipboard"
+                              >
+                                📋
+                              </button>
+                            </div>
                           </div>
                         </div>
                         <div class="flex gap-2 flex-shrink-0">
@@ -381,5 +393,13 @@ export class DocumentDetailComponent implements OnInit, OnDestroy {
 
   formatDate(dateString: string): string {
     return new Date(dateString).toLocaleDateString();
+  }
+
+  copyToClipboard(value: string, fieldName: string) {
+    navigator.clipboard.writeText(value).then(() => {
+      this.toastService.success('Copied!', `${fieldName} copied to clipboard`);
+    }).catch(() => {
+      this.toastService.error('Copy failed', 'Could not copy to clipboard');
+    });
   }
 }

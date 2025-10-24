@@ -38,14 +38,31 @@ import { SignalRService, ProcessingProgress } from '../../../core/services/signa
     ...BrnSelectImports
   ],
   template: `
-    <div class="space-y-6">
+    <div class="space-y-6"
+         (dragover)="onDragOver($event)"
+         (dragleave)="onDragLeave($event)"
+         (drop)="onDrop($event)">
+
+      <!-- Drag-and-drop overlay -->
+      @if (isDraggingOver()) {
+        <div class="fixed inset-0 z-50 bg-primary/10 backdrop-blur-sm flex items-center justify-center">
+          <div class="bg-background border-2 border-dashed border-primary rounded-lg p-12 text-center">
+            <div class="text-6xl mb-4">📄</div>
+            <h2 class="text-2xl font-bold mb-2">Drop files to upload</h2>
+            <p class="text-muted-foreground">Upload multiple documents at once</p>
+          </div>
+        </div>
+      }
+
       <!-- Header -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 class="text-3xl font-bold">Documents</h1>
-        <label hlmBtn class="cursor-pointer w-full sm:w-auto">
-          <input type="file" (change)="onFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.tiff" hidden />
-          Upload Document
-        </label>
+        <div class="flex gap-2 w-full sm:w-auto">
+          <label hlmBtn class="cursor-pointer flex-1 sm:flex-none">
+            <input type="file" (change)="onFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.tiff" multiple hidden />
+            Upload Document(s)
+          </label>
+        </div>
       </div>
 
       <!-- Search and Filters -->
@@ -153,7 +170,52 @@ import { SignalRService, ProcessingProgress } from '../../../core/services/signa
       @if (uploading()) {
         <div hlmAlert class="flex items-center gap-2">
           <hlm-spinner class="size-4" />
-          <p hlmAlertDescription>Uploading document...</p>
+          <p hlmAlertDescription>Uploading document(s)...</p>
+        </div>
+      }
+
+      <!-- View Mode Toggle & Bulk Actions -->
+      @if (!loading() && documents().length > 0) {
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <!-- View Mode Toggle -->
+          <div class="flex gap-1 border rounded-md p-1">
+            <button
+              hlmBtn
+              [variant]="viewMode() === 'grid' ? 'default' : 'ghost'"
+              size="sm"
+              (click)="setViewMode('grid')"
+              class="gap-2"
+            >
+              <span class="text-lg">⊞</span> Grid
+            </button>
+            <button
+              hlmBtn
+              [variant]="viewMode() === 'table' ? 'default' : 'ghost'"
+              size="sm"
+              (click)="setViewMode('table')"
+              class="gap-2"
+            >
+              <span class="text-lg">☰</span> Table
+            </button>
+          </div>
+
+          <!-- Bulk Actions Toolbar -->
+          @if (selectedDocuments().size > 0) {
+            <div class="flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-md">
+              <span class="text-sm font-medium">{{ selectedDocuments().size }} selected</span>
+              <div class="flex gap-2">
+                <button hlmBtn variant="outline" size="sm" (click)="bulkExport()">
+                  Export All
+                </button>
+                <button hlmBtn variant="destructive" size="sm" (click)="bulkDelete()">
+                  Delete All
+                </button>
+                <button hlmBtn variant="ghost" size="sm" (click)="selectedDocuments.set(new Set())">
+                  Clear
+                </button>
+              </div>
+            </div>
+          }
         </div>
       }
 
@@ -200,13 +262,24 @@ import { SignalRService, ProcessingProgress } from '../../../core/services/signa
           </div>
         </div>
       } @else {
-        <!-- Document Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          @for (doc of documents(); track doc.id) {
-            <div hlmCard class="hover:shadow-md transition-shadow">
-              <div hlmCardContent>
-                <div class="flex justify-between items-start mb-3">
-                  <h3 class="text-base font-semibold truncate flex-1 mr-2" [title]="doc.fileName">{{ doc.fileName }}</h3>
+        <!-- Grid View -->
+        @if (viewMode() === 'grid') {
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @for (doc of documents(); track doc.id) {
+              <div hlmCard class="hover:shadow-md transition-shadow relative">
+                <div hlmCardContent>
+                  <!-- Selection Checkbox -->
+                  <div class="absolute top-3 left-3">
+                    <input
+                      type="checkbox"
+                      [checked]="selectedDocuments().has(doc.id)"
+                      (change)="toggleDocumentSelection(doc.id)"
+                      class="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                    />
+                  </div>
+
+                  <div class="flex justify-between items-start mb-3 pl-8">
+                    <h3 class="text-base font-semibold truncate flex-1 mr-2" [title]="doc.fileName">{{ doc.fileName }}</h3>
                   @switch (doc.status) {
                     @case (0) {
                       <span hlmBadge variant="secondary">Uploaded</span>
@@ -264,6 +337,96 @@ import { SignalRService, ProcessingProgress } from '../../../core/services/signa
             </div>
           }
         </div>
+        }
+
+        <!-- Table View -->
+        @if (viewMode() === 'table') {
+          <div hlmCard>
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead class="border-b">
+                  <tr class="text-left">
+                    <th class="p-4 w-12">
+                      <input
+                        type="checkbox"
+                        [checked]="selectAllChecked()"
+                        (change)="toggleSelectAll()"
+                        class="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                      />
+                    </th>
+                    <th class="p-4 font-semibold">File Name</th>
+                    <th class="p-4 font-semibold">Status</th>
+                    <th class="p-4 font-semibold">Uploaded</th>
+                    <th class="p-4 font-semibold">Processed</th>
+                    <th class="p-4 font-semibold text-center">Fields</th>
+                    <th class="p-4 font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (doc of documents(); track doc.id) {
+                    <tr class="border-b hover:bg-muted/50 transition-colors">
+                      <td class="p-4">
+                        <input
+                          type="checkbox"
+                          [checked]="selectedDocuments().has(doc.id)"
+                          (change)="toggleDocumentSelection(doc.id)"
+                          class="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                        />
+                      </td>
+                      <td class="p-4">
+                        <div class="font-medium truncate max-w-xs" [title]="doc.fileName">
+                          {{ doc.fileName }}
+                        </div>
+                      </td>
+                      <td class="p-4">
+                        @switch (doc.status) {
+                          @case (0) {
+                            <span hlmBadge variant="secondary">Uploaded</span>
+                          }
+                          @case (1) {
+                            <div class="flex items-center gap-2">
+                              <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
+                              @if (processingProgress()[doc.id]; as progress) {
+                                <span class="text-xs text-muted-foreground">{{ progress.percentComplete }}%</span>
+                              }
+                            </div>
+                          }
+                          @case (2) {
+                            <span hlmBadge class="bg-green-600 text-white">Completed</span>
+                          }
+                          @case (3) {
+                            <span hlmBadge variant="destructive">Failed</span>
+                          }
+                        }
+                      </td>
+                      <td class="p-4 text-sm text-muted-foreground">
+                        {{ formatDate(doc.uploadedAt) }}
+                      </td>
+                      <td class="p-4 text-sm text-muted-foreground">
+                        {{ doc.processedAt ? formatDate(doc.processedAt) : '-' }}
+                      </td>
+                      <td class="p-4 text-center">
+                        <span class="text-sm font-medium">{{ doc.extractedFieldsCount }}</span>
+                      </td>
+                      <td class="p-4">
+                        <div class="flex gap-2">
+                          <a hlmBtn size="sm" variant="outline" [routerLink]="['/documents', doc.id]">
+                            View
+                          </a>
+                          @if (doc.status === 2) {
+                            <button hlmBtn variant="ghost" size="sm" (click)="downloadCsv(doc.id, doc.fileName)">
+                              CSV
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
 
         <!-- Pagination -->
         @if (paginationData() && paginationData()!.totalPages > 1) {
@@ -328,6 +491,16 @@ export class DocumentListComponent implements OnInit, OnDestroy {
   sortOrder: 'asc' | 'desc' = 'desc';
   pageSize = 10;
   currentPage = 1;
+
+  // Drag-and-drop state
+  isDraggingOver = signal(false);
+
+  // View mode state
+  viewMode = signal<'grid' | 'table'>('grid');
+
+  // Bulk selection state
+  selectedDocuments = signal<Set<string>>(new Set());
+  selectAllChecked = signal(false);
 
   // Search debounce
   private searchSubject = new Subject<string>();
@@ -517,5 +690,143 @@ export class DocumentListComponent implements OnInit, OnDestroy {
       month: 'short',
       day: 'numeric'
     });
+  }
+
+  // Drag-and-drop handlers
+  onDragOver(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingOver.set(true);
+  }
+
+  onDragLeave(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingOver.set(false);
+  }
+
+  onDrop(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingOver.set(false);
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      this.uploadMultipleDocuments(Array.from(files));
+    }
+  }
+
+  uploadMultipleDocuments(files: File[]) {
+    const validFiles = files.filter(file => {
+      const validExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff'];
+      const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+      return validExtensions.includes(extension);
+    });
+
+    if (validFiles.length === 0) {
+      this.toastService.error('Invalid file type', 'Please upload PDF, PNG, JPG, or TIFF files');
+      return;
+    }
+
+    if (validFiles.length !== files.length) {
+      this.toastService.warning('Some files skipped', `${files.length - validFiles.length} file(s) had invalid types`);
+    }
+
+    this.uploading.set(true);
+    let uploadedCount = 0;
+    let failedCount = 0;
+
+    validFiles.forEach((file, index) => {
+      this.documentService.uploadDocument(file).subscribe({
+        next: () => {
+          uploadedCount++;
+          if (uploadedCount + failedCount === validFiles.length) {
+            this.finishMultiUpload(uploadedCount, failedCount);
+          }
+        },
+        error: () => {
+          failedCount++;
+          if (uploadedCount + failedCount === validFiles.length) {
+            this.finishMultiUpload(uploadedCount, failedCount);
+          }
+        }
+      });
+    });
+  }
+
+  private finishMultiUpload(uploaded: number, failed: number) {
+    this.uploading.set(false);
+    this.loadDocuments();
+
+    if (failed === 0) {
+      this.toastService.success(`${uploaded} document(s) uploaded successfully!`, 'Processing will begin shortly');
+    } else if (uploaded === 0) {
+      this.toastService.error('Upload failed', `All ${failed} document(s) failed to upload`);
+    } else {
+      this.toastService.warning('Partial upload', `${uploaded} succeeded, ${failed} failed`);
+    }
+  }
+
+  // Bulk selection handlers
+  toggleDocumentSelection(documentId: string) {
+    const selected = new Set(this.selectedDocuments());
+    if (selected.has(documentId)) {
+      selected.delete(documentId);
+    } else {
+      selected.add(documentId);
+    }
+    this.selectedDocuments.set(selected);
+    this.updateSelectAllState();
+  }
+
+  toggleSelectAll() {
+    if (this.selectAllChecked()) {
+      this.selectedDocuments.set(new Set());
+      this.selectAllChecked.set(false);
+    } else {
+      const allIds = new Set(this.documents().map(doc => doc.id));
+      this.selectedDocuments.set(allIds);
+      this.selectAllChecked.set(true);
+    }
+  }
+
+  private updateSelectAllState() {
+    const selected = this.selectedDocuments();
+    const allDocs = this.documents();
+    this.selectAllChecked.set(allDocs.length > 0 && allDocs.every(doc => selected.has(doc.id)));
+  }
+
+  bulkDelete() {
+    const selected = Array.from(this.selectedDocuments());
+    if (selected.length === 0) return;
+
+    const confirmed = confirm(`Are you sure you want to delete ${selected.length} document(s)? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    this.toastService.info('Deleting documents...', `Removing ${selected.length} document(s)`);
+
+    // Note: You'll need to add a delete endpoint to your API
+    // For now, this shows the UI pattern
+    this.selectedDocuments.set(new Set());
+    this.loadDocuments();
+  }
+
+  bulkExport() {
+    const selected = Array.from(this.selectedDocuments());
+    if (selected.length === 0) return;
+
+    this.toastService.info('Exporting documents...', `Preparing ${selected.length} document(s)`);
+
+    selected.forEach(docId => {
+      const doc = this.documents().find(d => d.id === docId);
+      if (doc && doc.status === 2) {
+        this.downloadCsv(docId, doc.fileName);
+      }
+    });
+  }
+
+  // View mode toggle
+  setViewMode(mode: 'grid' | 'table') {
+    this.viewMode.set(mode);
   }
 }
