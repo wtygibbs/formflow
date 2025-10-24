@@ -30,7 +30,7 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
 
         try
         {
-            // Analyze document with the specified model
+            // Analyze document with the custom trained model
             var operation = await _client.AnalyzeDocumentAsync(
                 WaitUntil.Completed,
                 _modelId,
@@ -38,43 +38,41 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
 
             var result = operation.Value;
 
-            // Extract key-value pairs
-            foreach (var kvp in result.KeyValuePairs)
+            // Extract fields from custom model - fields are in Documents[].Fields
+            if (result.Documents != null && result.Documents.Count > 0)
             {
-                if (kvp.Key?.Content != null && kvp.Value?.Content != null)
+                foreach (var document in result.Documents)
                 {
-                    var key = kvp.Key.Content.Trim();
-                    var value = kvp.Value.Content.Trim();
-                    var confidence = kvp.Confidence;
+                    if (document.Fields == null)
+                        continue;
 
-                    results[key] = (value, confidence);
-                }
-            }
-
-            // Also extract tables if present
-            foreach (var table in result.Tables)
-            {
-                for (int row = 0; row < table.RowCount; row++)
-                {
-                    var rowCells = table.Cells.Where(c => c.RowIndex == row).OrderBy(c => c.ColumnIndex).ToList();
-
-                    if (rowCells.Count >= 2)
+                    foreach (var field in document.Fields)
                     {
-                        var key = rowCells[0].Content.Trim();
-                        var value = string.Join(", ", rowCells.Skip(1).Select(c => c.Content.Trim()));
+                        var fieldName = field.Key;
+                        var fieldValue = field.Value;
 
-                        if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                        if (fieldValue != null)
                         {
-                            // Use average confidence from cells
-                            var avgConfidence = rowCells.Average(c => c.BoundingRegions.FirstOrDefault().BoundingPolygon.Count > 0 ? 0.8f : 0.5f);
-                            results[$"Table_{table.BoundingRegions.FirstOrDefault().PageNumber}_{key}"] = (value, avgConfidence);
+                            // Extract the content/value from the field
+                            string value = ExtractFieldValue(fieldValue);
+                            float confidence = fieldValue.Confidence ?? 0f;
+
+                            if (!string.IsNullOrWhiteSpace(value))
+                            {
+                                results[fieldName] = (value, confidence);
+                            }
                         }
                     }
                 }
             }
 
-            // Extract common ACORD 125 fields from the content
-            ExtractAcord125SpecificFields(result, results);
+            // Fallback: If no documents were found, try the old methods
+            // This ensures backward compatibility with prebuilt models
+            if (results.Count == 0)
+            {
+                ExtractFromKeyValuePairs(result, results);
+                ExtractFromTables(result, results);
+            }
         }
         catch (Exception ex)
         {
@@ -84,43 +82,71 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
         return results;
     }
 
-    private void ExtractAcord125SpecificFields(AnalyzeResult result, Dictionary<string, (string Value, float Confidence)> results)
+    private string ExtractFieldValue(DocumentField field)
     {
-        // Common ACORD 125 fields to look for
-        var acord125Fields = new[]
+        // Handle different field types
+        return field.FieldType switch
         {
-            "Agency", "Agency Customer ID", "Producer", "Insured",
-            "Mailing Address", "Policy Number", "Effective Date", "Expiration Date",
-            "Company", "Company NAIC Code", "Policy Type", "Premium",
-            "Limit", "Deductible", "Coverage", "Description of Operations"
+            DocumentFieldType.String => field.Value.AsString(),
+            DocumentFieldType.Date => field.Value.AsDate().ToString("yyyy-MM-dd"),
+            DocumentFieldType.Time => field.Value.AsTime().ToString(),
+            DocumentFieldType.PhoneNumber => field.Value.AsPhoneNumber(),
+            DocumentFieldType.Double => field.Value.AsDouble().ToString(),
+            DocumentFieldType.Int64 => field.Value.AsInt64().ToString(),
+            DocumentFieldType.Address => field.Content,
+            DocumentFieldType.List => string.Join(", ", field.Value.AsList().Select(f => ExtractFieldValue(f))),
+            DocumentFieldType.Dictionary => string.Join("; ", field.Value.AsDictionary().Select(kvp => $"{kvp.Key}: {ExtractFieldValue(kvp.Value)}")),
+            _ => field.Content ?? string.Empty
         };
+    }
 
-        // Try to find these specific fields in the extracted content
-        foreach (var page in result.Pages)
+    private void ExtractFromKeyValuePairs(AnalyzeResult result, Dictionary<string, (string Value, float Confidence)> results)
+    {
+        // Extract key-value pairs (for prebuilt models)
+        foreach (var kvp in result.KeyValuePairs)
         {
-            foreach (var line in page.Lines)
+            if (kvp.Key?.Content != null && kvp.Value?.Content != null)
             {
-                var content = line.Content;
+                var key = kvp.Key.Content.Trim();
+                var value = kvp.Value.Content.Trim();
+                var confidence = kvp.Confidence;
 
-                foreach (var field in acord125Fields)
+                if (!results.ContainsKey(key))
                 {
-                    if (content.Contains(field, StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Extract the value after the field name
-                        var parts = content.Split(new[] { ':', '-' }, 2);
-                        if (parts.Length == 2)
-                        {
-                            var key = parts[0].Trim();
-                            var value = parts[1].Trim();
+                    results[key] = (value, confidence);
+                }
+            }
+        }
+    }
 
-                            if (!results.ContainsKey(key) && !string.IsNullOrWhiteSpace(value))
-                            {
-                                results[key] = (value, line.GetWords().Average(w => w.Confidence));
-                            }
+    private void ExtractFromTables(AnalyzeResult result, Dictionary<string, (string Value, float Confidence)> results)
+    {
+        // Extract tables (for prebuilt models)
+        foreach (var table in result.Tables)
+        {
+            for (int row = 0; row < table.RowCount; row++)
+            {
+                var rowCells = table.Cells.Where(c => c.RowIndex == row).OrderBy(c => c.ColumnIndex).ToList();
+
+                if (rowCells.Count >= 2)
+                {
+                    var key = rowCells[0].Content.Trim();
+                    var value = string.Join(", ", rowCells.Skip(1).Select(c => c.Content.Trim()));
+
+                    if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                    {
+                        // Use average confidence from cells
+                        var avgConfidence = rowCells.Average(c => c.BoundingRegions.FirstOrDefault().BoundingPolygon.Count > 0 ? 0.8f : 0.5f);
+                        var tableKey = $"Table_{table.BoundingRegions.FirstOrDefault().PageNumber}_{key}";
+
+                        if (!results.ContainsKey(tableKey))
+                        {
+                            results[tableKey] = (value, avgConfidence);
                         }
                     }
                 }
             }
         }
     }
+
 }

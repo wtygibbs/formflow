@@ -1,18 +1,46 @@
+using AcordParser.API.Middleware;
 using AcordParser.Core.DTOs;
 using AcordParser.Core.Entities;
 using AcordParser.Core.Interfaces;
 using AcordParser.Infrastructure.Data;
 using AcordParser.Infrastructure.Services;
+using Azure.Storage.Blobs;
+using HealthChecks.Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
+using System.Threading.RateLimiting;
+
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(new ConfigurationBuilder()
+        .AddJsonFile("appsettings.json")
+        .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"}.json", optional: true)
+        .Build())
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithThreadId()
+    .Enrich.WithEnvironmentName()
+    .CreateLogger();
+
+try
+{
+    Log.Information("Starting ACORD Parser API");
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add Serilog
+builder.Host.UseSerilog();
 
 // Add services to the container
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -60,6 +88,7 @@ builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 builder.Services.AddScoped<IAzureDocumentIntelligenceService, AzureDocumentIntelligenceService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -71,6 +100,87 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowCredentials();
     });
+});
+
+// Add Health Checks
+builder.Services.AddHealthChecks()
+    .AddSqlServer(
+        connectionString: builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty,
+        name: "database",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: new[] { "db", "sql", "sqlserver" })
+    .AddAzureBlobStorage(
+        clientFactory: sp =>
+        {
+            var connectionString = builder.Configuration["AzureStorage:ConnectionString"] 
+                ?? throw new InvalidOperationException("Azure Blob Storage connection string not configured");
+            return new BlobServiceClient(connectionString);
+        },
+        optionsFactory: sp => new AzureBlobStorageHealthCheckOptions()
+        {
+            ContainerName = "documents"
+        }, 
+        failureStatus: HealthStatus.Degraded,
+        tags: new[] { "azure", "storage" })
+    .AddCheck("self", () => HealthCheckResult.Healthy("API is running"), tags: new[] { "api" });
+
+// Add Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    // Global rate limit
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.Identity?.Name ?? context.Request.Headers.Host.ToString(),
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+
+    // Authentication endpoints - stricter limits
+    options.AddPolicy("auth", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+
+    // Document upload - moderate limits
+    options.AddPolicy("upload", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+
+    // API endpoints - generous limits for authenticated users
+    options.AddPolicy("api", context =>
+        RateLimitPartition.GetTokenBucketLimiter(
+            partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: partition => new TokenBucketRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                TokenLimit = 50,
+                ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+                TokensPerPeriod = 50
+            }));
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            error = "Too many requests. Please try again later.",
+            retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter) ? retryAfter.TotalSeconds : default(double?)
+        }, cancellationToken);
+    };
 });
 
 // Add Swagger
@@ -105,6 +215,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
+app.UseGlobalExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -113,8 +225,25 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAngular");
+
+// Add request logging
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+        diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
+        diagnosticContext.Set("UserAgent", httpContext.Request.Headers["User-Agent"].ToString());
+        if (httpContext.User.Identity?.IsAuthenticated == true)
+        {
+            diagnosticContext.Set("UserId", httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+        }
+    };
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 // Helper method to get user ID from claims
 string GetUserId(ClaimsPrincipal user)
@@ -132,7 +261,8 @@ app.MapPost("/api/auth/register", async (RegisterRequest request, IAuthService a
     return success ? Results.Ok(new { message = "Registration successful" }) : Results.BadRequest(new { error });
 })
 .WithName("Register")
-.WithTags("Authentication");
+.WithTags("Authentication")
+.RequireRateLimiting("auth");
 
 app.MapPost("/api/auth/login", async (LoginRequest request, IAuthService authService) =>
 {
@@ -140,7 +270,8 @@ app.MapPost("/api/auth/login", async (LoginRequest request, IAuthService authSer
     return success ? Results.Ok(response) : Results.BadRequest(new { error });
 })
 .WithName("Login")
-.WithTags("Authentication");
+.WithTags("Authentication")
+.RequireRateLimiting("auth");
 
 app.MapPost("/api/auth/2fa/enable", async (Enable2FARequest request, IAuthService authService, ClaimsPrincipal user) =>
 {
@@ -197,7 +328,8 @@ app.MapPost("/api/documents/upload", async (HttpRequest request, IDocumentServic
 .RequireAuthorization()
 .WithName("UploadDocument")
 .WithTags("Documents")
-.DisableAntiforgery();
+.DisableAntiforgery()
+.RequireRateLimiting("upload");
 
 app.MapGet("/api/documents", async (IDocumentService documentService, ClaimsPrincipal user) =>
 {
@@ -308,8 +440,63 @@ app.MapPost("/api/webhooks/stripe", async (HttpRequest request, ISubscriptionSer
 
 // ==================== HEALTH CHECK ====================
 
-app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
-    .WithName("HealthCheck")
-    .WithTags("Health");
+app.MapHealthChecks("/api/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var response = new
+        {
+            status = report.Status.ToString(),
+            timestamp = DateTime.UtcNow,
+            duration = report.TotalDuration,
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration,
+                exception = e.Value.Exception?.Message,
+                data = e.Value.Data,
+                tags = e.Value.Tags
+            })
+        };
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        }));
+    }
+})
+.WithName("HealthCheck")
+.WithTags("Health")
+.AllowAnonymous();
 
+app.MapHealthChecks("/api/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("db")
+})
+.WithName("ReadinessCheck")
+.WithTags("Health")
+.AllowAnonymous();
+
+app.MapHealthChecks("/api/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("api")
+})
+.WithName("LivenessCheck")
+.WithTags("Health")
+.AllowAnonymous();
+
+Log.Information("ACORD Parser API started successfully");
 app.Run();
+
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

@@ -2,66 +2,104 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { DocumentService, DocumentListItem } from '../../../core/services/document.service';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmBadgeImports } from '@spartan-ng/helm/badge';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
+import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 
 @Component({
   selector: 'app-document-list',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [
+    CommonModule,
+    RouterLink,
+    ...HlmCardImports,
+    ...HlmButtonImports,
+    ...HlmBadgeImports,
+    ...HlmAlertImports,
+    ...HlmSpinnerImports
+  ],
   template: `
-    <div class="documents-container">
-      <div class="header">
-        <h1>Documents</h1>
-        <label class="btn btn-primary upload-btn">
+    <div class="space-y-6">
+      <!-- Header -->
+      <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold">Documents</h1>
+        <label hlmBtn class="cursor-pointer">
           <input type="file" (change)="onFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.tiff" hidden />
           Upload Document
         </label>
       </div>
 
+      <!-- Alerts -->
       @if (uploading()) {
-        <div class="alert alert-info">Uploading document...</div>
+        <div hlmAlert class="flex items-center gap-2">
+          <hlm-spinner class="size-4" />
+          <p hlmAlertDescription>Uploading document...</p>
+        </div>
       }
 
       @if (error()) {
-        <div class="alert alert-error">{{ error() }}</div>
+        <div hlmAlert variant="destructive">
+          <p hlmAlertDescription>{{ error() }}</p>
+        </div>
       }
 
+      <!-- Content -->
       @if (loading()) {
-        <p>Loading documents...</p>
+        <div class="flex justify-center p-16">
+          <hlm-spinner />
+        </div>
       } @else if (documents().length === 0) {
-        <div class="empty-state">
-          <div class="empty-icon">📄</div>
-          <h2>No Documents Yet</h2>
-          <p>Upload your first ACORD 125 form to get started</p>
-          <label class="btn btn-primary">
-            <input type="file" (change)="onFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.tiff" hidden />
-            Upload Your First Document
-          </label>
+        <div hlmCard>
+          <div hlmCardContent class="flex flex-col items-center text-center py-16">
+            <h2 class="text-2xl font-semibold mb-2">No Documents Yet</h2>
+            <p class="text-muted-foreground mb-6">Upload your first ACORD 125 form to get started</p>
+            <label hlmBtn class="cursor-pointer">
+              <input type="file" (change)="onFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.tiff" hidden />
+              Upload Your First Document
+            </label>
+          </div>
         </div>
       } @else {
-        <div class="documents-grid">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           @for (doc of documents(); track doc.id) {
-            <div class="document-card">
-              <div class="document-header">
-                <span class="file-icon">📄</span>
-                <span [class]="'status-badge status-' + doc.status">{{ getStatusText(doc.status) }}</span>
-              </div>
-              <h3>{{ doc.fileName }}</h3>
-              <div class="document-meta">
-                <p>Uploaded: {{ formatDate(doc.uploadedAt) }}</p>
-                @if (doc.processedAt) {
-                  <p>Processed: {{ formatDate(doc.processedAt) }}</p>
-                }
-                <p>Fields Extracted: {{ doc.extractedFieldsCount }}</p>
-              </div>
-              <div class="document-actions">
-                <a [routerLink]="['/documents', doc.id]" class="btn btn-sm btn-primary">
-                  View Details
-                </a>
-                @if (doc.status === 2) {
-                  <button (click)="downloadCsv(doc.id, doc.fileName)" class="btn btn-sm btn-outline">
-                    Export CSV
-                  </button>
-                }
+            <div hlmCard class="hover:shadow-md transition-shadow">
+              <div hlmCardContent>
+                <div class="flex justify-between items-start mb-3">
+                  <h3 class="text-base font-semibold truncate flex-1 mr-2" title="{{ doc.fileName }}">{{ doc.fileName }}</h3>
+                  @switch (doc.status) {
+                    @case (0) {
+                      <span hlmBadge variant="secondary">Uploaded</span>
+                    }
+                    @case (1) {
+                      <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
+                    }
+                    @case (2) {
+                      <span hlmBadge class="bg-green-600 text-white">Completed</span>
+                    }
+                    @case (3) {
+                      <span hlmBadge variant="destructive">Failed</span>
+                    }
+                  }
+                </div>
+                <div class="space-y-1 text-sm text-muted-foreground">
+                  <p>Uploaded: {{ formatDate(doc.uploadedAt) }}</p>
+                  @if (doc.processedAt) {
+                    <p>Processed: {{ formatDate(doc.processedAt) }}</p>
+                  }
+                  <p>Fields: {{ doc.extractedFieldsCount }}</p>
+                </div>
+                <div class="flex gap-2 mt-4">
+                  <a hlmBtn size="sm" class="flex-1" [routerLink]="['/documents', doc.id]">
+                    View
+                  </a>
+                  @if (doc.status === 2) {
+                    <button hlmBtn variant="outline" size="sm" (click)="downloadCsv(doc.id, doc.fileName)">
+                      CSV
+                    </button>
+                  }
+                </div>
               </div>
             </div>
           }
@@ -69,177 +107,7 @@ import { DocumentService, DocumentListItem } from '../../../core/services/docume
       }
     </div>
   `,
-  styles: [`
-    .documents-container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-    }
-
-    h1 {
-      margin: 0;
-      color: #333;
-    }
-
-    .upload-btn {
-      cursor: pointer;
-    }
-
-    .btn {
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: 600;
-      transition: all 0.3s;
-      border: 2px solid transparent;
-      display: inline-block;
-      cursor: pointer;
-      font-size: 1rem;
-      background: none;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-outline {
-      background: white;
-      color: #667eea;
-      border-color: #667eea;
-    }
-
-    .btn-outline:hover {
-      background: #667eea;
-      color: white;
-    }
-
-    .btn-sm {
-      padding: 0.5rem 1rem;
-      font-size: 0.875rem;
-    }
-
-    .alert {
-      padding: 1rem;
-      border-radius: 6px;
-      margin-bottom: 1.5rem;
-    }
-
-    .alert-info {
-      background: #e7f3ff;
-      color: #0066cc;
-      border: 1px solid #b3d9ff;
-    }
-
-    .alert-error {
-      background: #fee;
-      color: #c33;
-      border: 1px solid #fcc;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 4rem 2rem;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-
-    .empty-icon {
-      font-size: 4rem;
-      margin-bottom: 1rem;
-    }
-
-    .empty-state h2 {
-      margin: 0 0 1rem 0;
-      color: #333;
-    }
-
-    .empty-state p {
-      color: #6c757d;
-      margin: 0 0 2rem 0;
-    }
-
-    .documents-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .document-card {
-      background: white;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      transition: all 0.3s;
-    }
-
-    .document-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    }
-
-    .document-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .file-icon {
-      font-size: 2rem;
-    }
-
-    .status-badge {
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .status-0 { background: #e0e0e0; color: #666; }
-    .status-1 { background: #fff3cd; color: #856404; }
-    .status-2 { background: #d4edda; color: #155724; }
-    .status-3 { background: #f8d7da; color: #721c24; }
-
-    .document-card h3 {
-      margin: 0 0 1rem 0;
-      color: #333;
-      font-size: 1rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .document-meta {
-      margin-bottom: 1.5rem;
-    }
-
-    .document-meta p {
-      margin: 0.25rem 0;
-      color: #6c757d;
-      font-size: 0.875rem;
-    }
-
-    .document-actions {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-  `]
+  styles: []
 })
 export class DocumentListComponent implements OnInit {
   private documentService = inject(DocumentService);

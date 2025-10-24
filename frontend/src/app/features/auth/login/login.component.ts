@@ -1,226 +1,135 @@
-import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { Component, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { HlmFormFieldImports } from "@spartan-ng/helm/form-field";
+import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
+import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+    ...HlmFormFieldImports,
+    ...HlmInputImports,
+    ...HlmCardImports,
+    ...HlmButtonImports,
+    ...HlmAlertImports,
+    ...HlmSeparatorImports
+  ],
   template: `
-    <div class="auth-container">
-      <div class="auth-card">
-        <h2>Sign In</h2>
-        <p class="subtitle">Welcome back to ACORD Parser</p>
+    <div class="flex justify-center items-center min-h-[calc(100vh-300px)]">
+      <div hlmCard class="w-full max-w-md">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle class="text-2xl text-center">Sign In</h2>
+          <p hlmCardDescription class="text-center">Welcome back to ACORD Parser</p>
+        </div>
 
-        @if (error()) {
-          <div class="alert alert-error">{{ error() }}</div>
-        }
-
-        @if (success()) {
-          <div class="alert alert-success">{{ success() }}</div>
-        }
-
-        <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
-          @if (!twoFactorRequired()) {
-            <div class="form-group">
-              <label for="email">Email</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                [(ngModel)]="email"
-                required
-                email
-                class="form-control"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="password">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                [(ngModel)]="password"
-                required
-                minlength="8"
-                class="form-control"
-                placeholder="Enter your password"
-              />
-            </div>
-          } @else {
-            <div class="form-group">
-              <label for="twoFactorCode">Two-Factor Authentication Code</label>
-              <input
-                type="text"
-                id="twoFactorCode"
-                name="twoFactorCode"
-                [(ngModel)]="twoFactorCode"
-                required
-                pattern="[0-9]{6}"
-                class="form-control"
-                placeholder="000000"
-                maxlength="6"
-              />
-              <small>Enter the 6-digit code from your authenticator app</small>
+        <div hlmCardContent>
+          @if (error()) {
+            <div hlmAlert variant="destructive" class="mb-4">
+              <p hlmAlertDescription>{{ error() }}</p>
             </div>
           }
 
-          <button
-            type="submit"
-            class="btn btn-primary btn-block"
-            [disabled]="!loginForm.valid || loading()"
-          >
-            @if (loading()) {
-              <span>Signing in...</span>
-            } @else {
-              <span>{{ twoFactorRequired() ? 'Verify Code' : 'Sign In' }}</span>
-            }
-          </button>
-        </form>
+          @if (success()) {
+            <div hlmAlert class="mb-4">
+              <p hlmAlertDescription>{{ success() }}</p>
+            </div>
+          }
 
-        <p class="auth-link">
-          Don't have an account? <a routerLink="/register">Sign up</a>
-        </p>
+          <form (ngSubmit)="onSubmit()" [formGroup]="form" class="space-y-4">
+            @if (!twoFactorRequired()) {
+              <hlm-form-field>
+                <label hlmLabel for="email">Email</label>
+                <input
+                  hlmInput
+                  type="email"
+                  id="email"
+                  name="email"
+                  formControlName="email"
+                  required
+                  placeholder="you@example.com"
+                />
+                <hlm-error>Email is required</hlm-error>
+              </hlm-form-field>
+
+              <hlm-form-field>
+                <label hlmLabel for="password">Password</label>
+                <input
+                  hlmInput
+                  type="password"
+                  id="password"
+                  name="password"
+                  formControlName="password"
+                  required
+                  placeholder="Enter your password"
+                />
+                <hlm-error>Password is required</hlm-error>
+              </hlm-form-field>
+            } @else {
+              <hlm-form-field>
+                <label hlmLabel for="twoFactorCode">Two-Factor Authentication Code</label>
+                <input
+                  hlmInput
+                  type="text"
+                  id="twoFactorCode"
+                  name="twoFactorCode"
+                  formControlName="twoFactorCode"
+                  required
+                  pattern="[0-9]{6}"
+                  class="text-center text-2xl tracking-widest"
+                  placeholder="000000"
+                  maxlength="6"
+                />
+                <hlm-hint>Enter the 6-digit code from your authenticator app</hlm-hint>
+                <hlm-error>Code is required</hlm-error>
+              </hlm-form-field>
+            }
+
+            <button
+              hlmBtn
+              type="submit"
+              class="w-full"
+              [disabled]="!form.valid || loading()"
+            >
+              {{ loading() ? 'Signing in...' : (twoFactorRequired() ? 'Verify Code' : 'Sign In') }}
+            </button>
+          </form>
+
+          <div class="relative my-4">
+            <div hlmSeparator></div>
+            <span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">OR</span>
+          </div>
+
+          <p class="text-center text-sm text-muted-foreground">
+            Don't have an account?
+            <a routerLink="/register" class="font-medium text-primary underline-offset-4 hover:underline">Sign up</a>
+          </p>
+        </div>
       </div>
     </div>
   `,
-  styles: [`
-    .auth-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: calc(100vh - 300px);
-    }
-
-    .auth-card {
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 400px;
-    }
-
-    h2 {
-      margin: 0 0 0.5rem 0;
-      text-align: center;
-      color: #667eea;
-    }
-
-    .subtitle {
-      text-align: center;
-      color: #6c757d;
-      margin: 0 0 2rem 0;
-    }
-
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: 600;
-      color: #333;
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 1rem;
-      box-sizing: border-box;
-    }
-
-    .form-control:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    small {
-      display: block;
-      margin-top: 0.5rem;
-      color: #6c757d;
-      font-size: 0.875rem;
-    }
-
-    .btn {
-      padding: 0.75rem 1.5rem;
-      border: none;
-      border-radius: 4px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .btn-block {
-      width: 100%;
-    }
-
-    .alert {
-      padding: 1rem;
-      border-radius: 4px;
-      margin-bottom: 1.5rem;
-    }
-
-    .alert-error {
-      background: #fee;
-      color: #c33;
-      border: 1px solid #fcc;
-    }
-
-    .alert-success {
-      background: #efe;
-      color: #3c3;
-      border: 1px solid #cfc;
-    }
-
-    .auth-link {
-      text-align: center;
-      margin-top: 1.5rem;
-      color: #6c757d;
-    }
-
-    .auth-link a {
-      color: #667eea;
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .auth-link a:hover {
-      text-decoration: underline;
-    }
-  `]
+  styles: []
 })
 export class LoginComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
+  private fb = inject(FormBuilder);
 
-  email = '';
-  password = '';
-  twoFactorCode = '';
+  form = this.fb.nonNullable.group({
+    email: this.fb.control<string>('', { nonNullable: true }),
+    password: '',
+    twoFactorCode: ''
+  });
+
   twoFactorRequired = signal(false);
   error = signal('');
   success = signal('');
@@ -231,10 +140,12 @@ export class LoginComponent {
     this.success.set('');
     this.loading.set(true);
 
+    const { ...value } = this.form.value;
+
     this.authService.login({
-      email: this.email,
-      password: this.password,
-      twoFactorCode: this.twoFactorCode || undefined
+      email: value.email || '',
+      password: value.password || '',
+      twoFactorCode: value.twoFactorCode
     }).subscribe({
       next: (response) => {
         this.loading.set(false);
