@@ -70,12 +70,28 @@
         <div class="mb-6">
           <h3 class="text-sm font-semibold mb-3">Document Preview</h3>
           <div class="border rounded-lg overflow-hidden bg-muted/20">
-            <img
-              [src]="filePreviewUrl()"
-              [alt]="doc.fileName"
-              class="w-full h-auto max-h-96 object-contain"
-              (error)="$any($event.target).style.display='none'"
-            />
+            @if (fileType() === 'pdf') {
+              <!-- PDF Preview using iframe -->
+              <iframe
+                [src]="safeFileUrl()"
+                class="w-full h-96 border-0"
+                title="{{ doc.fileName }}"
+              ></iframe>
+            } @else if (fileType() === 'image') {
+              <!-- Image Preview -->
+              <img
+                [src]="filePreviewUrl()"
+                [alt]="doc.fileName"
+                class="w-full h-auto max-h-96 object-contain"
+                (error)="$any($event.target).style.display='none'"
+              />
+            } @else {
+              <!-- Fallback for unknown types -->
+              <div class="p-6 text-center text-muted-foreground">
+                <p>Preview not available for this file type</p>
+                <a [href]="filePreviewUrl()" target="_blank" class="text-primary underline">Open in new tab</a>
+              </div>
+            }
           </div>
         </div>
       }

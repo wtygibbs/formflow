@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, input, output, signal } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
@@ -31,6 +32,7 @@ import { ToastService } from '../../../core/services/toast.service';
 export class DocumentPreviewPanelComponent {
   private documentService = inject(DocumentService);
   private toastService = inject(ToastService);
+  private sanitizer = inject(DomSanitizer);
 
   // Inputs
   documentId = input.required<string>();
@@ -56,6 +58,23 @@ export class DocumentPreviewPanelComponent {
     const doc = this.document();
     // FileUrl now contains a SAS URL from the backend
     return doc?.fileUrl || null;
+  });
+
+  safeFileUrl = computed<SafeResourceUrl | null>(() => {
+    const url = this.filePreviewUrl();
+    if (!url) return null;
+    // Sanitize the URL for use in iframe (needed for PDFs)
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  });
+
+  fileType = computed(() => {
+    const doc = this.document();
+    if (!doc) return null;
+
+    const extension = doc.fileName.toLowerCase().split('.').pop();
+    if (extension === 'pdf') return 'pdf';
+    if (['png', 'jpg', 'jpeg', 'tiff', 'tif'].includes(extension || '')) return 'image';
+    return null;
   });
 
   constructor() {
