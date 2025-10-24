@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, effect } from '@angular/core';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmToasterImports } from '@spartan-ng/helm/sonner';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
+import { SignalRService } from './core/services/signalr.service';
 
 @Component({
   selector: 'app-root',
@@ -66,13 +67,33 @@ import { ThemeService } from './core/services/theme.service';
 export class AppComponent {
   authService = inject(AuthService);
   themeService = inject(ThemeService);
+  signalRService = inject(SignalRService);
   router = inject(Router);
+
+  constructor() {
+    // Initialize SignalR connection when user is authenticated
+    effect(() => {
+      if (this.authService.isAuthenticated()) {
+        const token = this.authService.getToken();
+        if (token && !this.signalRService.isConnected()) {
+          this.signalRService.startConnection(token).catch(error => {
+            console.error('Failed to start SignalR connection:', error);
+          });
+        }
+      } else {
+        if (this.signalRService.isConnected()) {
+          this.signalRService.stopConnection();
+        }
+      }
+    });
+  }
 
   toggleTheme() {
     this.themeService.toggleTheme();
   }
 
   logout() {
+    this.signalRService.stopConnection();
     this.authService.logout();
     this.router.navigate(['/login']);
   }
