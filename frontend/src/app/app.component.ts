@@ -4,13 +4,15 @@ import { RouterOutlet, RouterLink, Router } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmToasterComponent } from '@spartan-ng/helm/sonner';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, ...HlmButtonImports],
+  imports: [CommonModule, RouterOutlet, RouterLink, ...HlmButtonImports, HlmToasterComponent],
   template: `
     <div class="min-h-screen flex flex-col bg-background">
+      <hlm-toaster />
       <header class="bg-card border-b sticky top-0 z-50">
         <div class="container mx-auto px-4 py-3 flex items-center justify-between max-w-7xl">
           <h1 class="text-xl font-semibold cursor-pointer hover:opacity-80 transition-opacity" routerLink="/">

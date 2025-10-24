@@ -341,6 +341,37 @@ app.MapGet("/api/documents", async (IDocumentService documentService, ClaimsPrin
 .WithName("GetDocuments")
 .WithTags("Documents");
 
+app.MapGet("/api/documents/paginated", async (
+    IDocumentService documentService,
+    ClaimsPrincipal user,
+    int page = 1,
+    int pageSize = 10,
+    string? search = null,
+    string? status = null,
+    DateTime? fromDate = null,
+    DateTime? toDate = null,
+    string? sortBy = "UploadedAt",
+    string? sortOrder = "desc") =>
+{
+    var userId = GetUserId(user);
+    var request = new PaginationRequest
+    {
+        Page = page,
+        PageSize = pageSize,
+        Search = search,
+        Status = status,
+        FromDate = fromDate,
+        ToDate = toDate,
+        SortBy = sortBy,
+        SortOrder = sortOrder
+    };
+    var documents = await documentService.GetUserDocumentsPaginatedAsync(userId, request);
+    return Results.Ok(documents);
+})
+.RequireAuthorization()
+.WithName("GetDocumentsPaginated")
+.WithTags("Documents");
+
 app.MapGet("/api/documents/{documentId}", async (Guid documentId, IDocumentService documentService, ClaimsPrincipal user) =>
 {
     var userId = GetUserId(user);

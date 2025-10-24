@@ -104,6 +104,83 @@ public class DocumentService : IDocumentService
         return documents;
     }
 
+    public async Task<PaginatedResponse<DocumentListResponse>> GetUserDocumentsPaginatedAsync(string userId, PaginationRequest request)
+    {
+        // Build base query
+        var query = _context.Documents
+            .Where(d => d.UserId == userId)
+            .AsQueryable();
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var searchTerm = request.Search.ToLower();
+            query = query.Where(d => d.FileName.ToLower().Contains(searchTerm));
+        }
+
+        // Apply status filter
+        if (!string.IsNullOrWhiteSpace(request.Status) && Enum.TryParse<DocumentStatus>(request.Status, true, out var status))
+        {
+            query = query.Where(d => d.Status == status);
+        }
+
+        // Apply date range filters
+        if (request.FromDate.HasValue)
+        {
+            query = query.Where(d => d.UploadedAt >= request.FromDate.Value);
+        }
+
+        if (request.ToDate.HasValue)
+        {
+            var toDateEndOfDay = request.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(d => d.UploadedAt <= toDateEndOfDay);
+        }
+
+        // Get total count before pagination
+        var totalCount = await query.CountAsync();
+
+        // Apply sorting
+        query = (request.SortBy?.ToLower(), request.SortOrder?.ToLower()) switch
+        {
+            ("filename", "asc") => query.OrderBy(d => d.FileName),
+            ("filename", "desc") => query.OrderByDescending(d => d.FileName),
+            ("status", "asc") => query.OrderBy(d => d.Status),
+            ("status", "desc") => query.OrderByDescending(d => d.Status),
+            ("uploadedat", "asc") => query.OrderBy(d => d.UploadedAt),
+            ("processedat", "asc") => query.OrderBy(d => d.ProcessedAt),
+            ("processedat", "desc") => query.OrderByDescending(d => d.ProcessedAt),
+            _ => query.OrderByDescending(d => d.UploadedAt) // Default sort
+        };
+
+        // Apply pagination
+        var documents = await query
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .Select(d => new DocumentListResponse(
+                d.Id,
+                d.FileName,
+                d.Status,
+                d.UploadedAt,
+                d.ProcessedAt,
+                d.ExtractedFields.Count
+            ))
+            .ToListAsync();
+
+        // Calculate pagination metadata
+        var totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
+
+        return new PaginatedResponse<DocumentListResponse>
+        {
+            Data = documents,
+            TotalCount = totalCount,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalPages = totalPages,
+            HasPreviousPage = request.Page > 1,
+            HasNextPage = request.Page < totalPages
+        };
+    }
+
     public async Task<DocumentDetailResponse?> GetDocumentDetailAsync(Guid documentId, string userId)
     {
         var document = await _context.Documents
