@@ -89,6 +89,10 @@ builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 builder.Services.AddScoped<IAzureDocumentIntelligenceService, AzureDocumentIntelligenceService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<INotificationService, AcordParser.API.Services.SignalRNotificationService>();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -518,6 +522,10 @@ app.MapHealthChecks("/api/health/live", new HealthCheckOptions
 .WithName("LivenessCheck")
 .WithTags("Health")
 .AllowAnonymous();
+
+// ==================== SIGNALR HUBS ====================
+
+app.MapHub<AcordParser.API.Hubs.DocumentProcessingHub>("/hubs/document-processing");
 
 Log.Information("ACORD Parser API started successfully");
 app.Run();
