@@ -1,15 +1,15 @@
-import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet, RouterLink, Router } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmToasterImports } from '@spartan-ng/helm/sonner';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
-import { HlmButtonImports } from '@spartan-ng/helm/button';
-import { HlmToasterComponent } from '@spartan-ng/helm/sonner';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, ...HlmButtonImports, HlmToasterComponent],
+  imports: [CommonModule, RouterOutlet, RouterLink, ...HlmButtonImports, HlmToasterImports],
   template: `
     <div class="min-h-screen flex flex-col bg-background">
       <hlm-toaster />

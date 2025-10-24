@@ -1,20 +1,20 @@
-import { Component, inject, OnInit, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DocumentService, DocumentListItem, PaginatedResponse, PaginationRequest } from '../../../core/services/document.service';
-import { ToastService } from '../../../core/services/toast.service';
-import { HlmCardImports } from '@spartan-ng/helm/card';
-import { HlmButtonImports } from '@spartan-ng/helm/button';
-import { HlmBadgeImports } from '@spartan-ng/helm/badge';
+import { RouterLink } from '@angular/router';
+import { BrnSelectImports } from '@spartan-ng/brain/select';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
-import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
+import { HlmBadgeImports } from '@spartan-ng/helm/badge';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmPaginationImports } from '@spartan-ng/helm/pagination';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
-import { HlmPaginationImports } from '@spartan-ng/helm/pagination';
-import { BrnSelectImports } from '@spartan-ng/brain/select';
+import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 import { debounceTime, Subject } from 'rxjs';
+import { DocumentListItem, DocumentService, PaginatedResponse, PaginationRequest } from '../../../core/services/document.service';
+import { ToastService } from '../../../core/services/toast.service';
 
 @Component({
   selector: 'app-document-list',
