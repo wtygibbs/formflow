@@ -201,18 +201,33 @@ describe('AuthService', () => {
     });
 
     it('should detect authenticated state on initialization', () => {
+      // Clear and set up localStorage before creating service
+      localStorage.clear();
       localStorage.setItem('auth_token', 'existing-token');
 
-      // Create new service instance to test initialization
-      const newService = new AuthService();
+      // Recreate the service through TestBed to test initialization
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [HttpClientTestingModule],
+        providers: [AuthService]
+      });
+
+      const newService = TestBed.inject(AuthService);
       expect(newService.isAuthenticated()).toBe(true);
     });
 
     it('should detect unauthenticated state on initialization', () => {
+      // Clear localStorage before creating service
       localStorage.clear();
 
-      // Create new service instance to test initialization
-      const newService = new AuthService();
+      // Recreate the service through TestBed to test initialization
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [HttpClientTestingModule],
+        providers: [AuthService]
+      });
+
+      const newService = TestBed.inject(AuthService);
       expect(newService.isAuthenticated()).toBe(false);
     });
   });

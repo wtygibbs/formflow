@@ -65,6 +65,9 @@ public class DocumentServiceTests : IDisposable
         _blobStorageMock.Setup(b => b.UploadFileAsync(It.IsAny<Stream>(), fileName, "application/pdf"))
             .ReturnsAsync("https://blob.storage/test-document.pdf");
 
+        _blobStorageMock.Setup(b => b.DownloadFileAsync(It.IsAny<string>()))
+            .ReturnsAsync(new MemoryStream(content));
+
         _documentIntelligenceMock.Setup(d => d.AnalyzeAcord125Async(It.IsAny<Stream>(), fileName))
             .ReturnsAsync(new Dictionary<string, (string Value, float Confidence)>
             {
@@ -81,7 +84,8 @@ public class DocumentServiceTests : IDisposable
         // Assert
         Assert.NotEqual(Guid.Empty, result.DocumentId);
         Assert.Equal(fileName, result.FileName);
-        Assert.Equal(DocumentStatus.Uploaded, result.Status);
+        // Status will be Completed because ProcessDocumentAsync is called synchronously
+        Assert.Equal(DocumentStatus.Completed, result.Status);
 
         var document = await _context.Documents.FindAsync(result.DocumentId);
         Assert.NotNull(document);

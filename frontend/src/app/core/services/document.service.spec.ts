@@ -314,8 +314,9 @@ describe('DocumentService', () => {
       );
 
       const req = httpMock.expectOne(`${environment.apiUrl}/documents/${documentId}/export`);
+      // For blob responses, flush with a Blob even for errors
       req.flush(
-        { error: 'Export failed' },
+        new Blob(['Export failed'], { type: 'text/plain' }),
         { status: 500, statusText: 'Internal Server Error' }
       );
     });

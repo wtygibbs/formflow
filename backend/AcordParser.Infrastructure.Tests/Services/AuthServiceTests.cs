@@ -291,8 +291,10 @@ public class AuthServiceTests
         Assert.True(success);
         Assert.NotNull(response);
         Assert.NotEmpty(response.Secret);
-        Assert.Contains("otpauth://totp/", response.QrCodeUrl);
-        Assert.Contains(user.Email, response.QrCodeUrl);
+        Assert.Contains("chart.googleapis.com", response.QrCodeUrl);
+        Assert.Contains("cht=qr", response.QrCodeUrl);
+        // The otpauth URL is URL-encoded in the chl parameter
+        Assert.Contains("chl=", response.QrCodeUrl);
         Assert.Null(error);
 
         _userManagerMock.Verify(um => um.UpdateAsync(
