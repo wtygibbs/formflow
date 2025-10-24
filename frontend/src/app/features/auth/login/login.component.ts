@@ -1,13 +1,15 @@
-import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { Component, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { HlmFormFieldImports } from "@spartan-ng/helm/form-field";
+import { HlmInputImports } from '../../../../../libs/ui/ui-input-helm/src';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, HlmFormFieldImports, HlmInputImports],
   template: `
     <div class="flex justify-center items-center min-h-[calc(100vh-300px)]">
       <div class="card bg-base-100 border border-base-300 shadow-sm w-full max-w-md">
@@ -29,39 +31,40 @@ import { AuthService } from '../../../core/services/auth.service';
             </div>
           }
 
-          <form (ngSubmit)="onSubmit()" #loginForm="ngForm" class="space-y-4">
+          <form (ngSubmit)="onSubmit()" [formGroup]="form" class="space-y-4">
             @if (!twoFactorRequired()) {
-              <div class="form-control">
-                <label class="label" for="email">
-                  <span class="label-text">Email</span>
-                </label>
+              <hlm-form-field>
+                <label hlmLabel for="email">Email</label>
                 <input
+                  hlmInput
                   type="email"
                   id="email"
                   name="email"
-                  [(ngModel)]="email"
+                  formControlName="email"
                   required
                   email
-                  class="input input-bordered w-full"
                   placeholder="you@example.com"
                 />
-              </div>
 
-              <div class="form-control">
-                <label class="label" for="password">
-                  <span class="label-text">Password</span>
-                </label>
+                <hlm-hint>This is your email address.</hlm-hint>
+			          <hlm-error>The email is required.</hlm-error>
+              </hlm-form-field>
+
+                            <hlm-form-field>
+                              <label hlmLabel for="password">Password</label>
                 <input
+                  hlmInput
                   type="password"
                   id="password"
                   name="password"
-                  [(ngModel)]="password"
+                  formControlName="password"
                   required
-                  minlength="8"
-                  class="input input-bordered w-full"
-                  placeholder="Enter your password"
+                  placeholder="*********"
                 />
-              </div>
+
+                <hlm-hint>This is your email address.</hlm-hint>
+			          <hlm-error>The email is required.</hlm-error>
+              </hlm-form-field>
             } @else {
               <div class="form-control">
                 <label class="label" for="twoFactorCode">
@@ -71,7 +74,6 @@ import { AuthService } from '../../../core/services/auth.service';
                   type="text"
                   id="twoFactorCode"
                   name="twoFactorCode"
-                  [(ngModel)]="twoFactorCode"
                   required
                   pattern="[0-9]{6}"
                   class="input input-bordered w-full text-center text-2xl tracking-widest"
@@ -87,7 +89,7 @@ import { AuthService } from '../../../core/services/auth.service';
             <button
               type="submit"
               class="btn btn-primary w-full"
-              [disabled]="!loginForm.valid || loading()"
+              [disabled]="!form.valid || loading()"
             >
               {{ loading() ? 'Signing in...' : (twoFactorRequired() ? 'Verify Code' : 'Sign In') }}
             </button>
@@ -108,10 +110,14 @@ import { AuthService } from '../../../core/services/auth.service';
 export class LoginComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
+  private fb = inject(FormBuilder);
 
-  email = '';
-  password = '';
-  twoFactorCode = '';
+  form = this.fb.nonNullable.group({
+    email: this.fb.control<string>('', { nonNullable: true }),
+    password: '',
+    twoFactorCode: ''
+  });
+
   twoFactorRequired = signal(false);
   error = signal('');
   success = signal('');
@@ -122,10 +128,12 @@ export class LoginComponent {
     this.success.set('');
     this.loading.set(true);
 
+    const { ...value } = this.form.value;
+
     this.authService.login({
-      email: this.email,
-      password: this.password,
-      twoFactorCode: this.twoFactorCode || undefined
+      email: value.email || '',
+      password: value.password || '',
+      twoFactorCode: value.twoFactorCode
     }).subscribe({
       next: (response) => {
         this.loading.set(false);
