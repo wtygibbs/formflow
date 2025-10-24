@@ -68,8 +68,24 @@
       <!-- Document Preview -->
       @if (filePreviewUrl()) {
         <div class="mb-6">
-          <h3 class="text-sm font-semibold mb-3">Document Preview</h3>
-          <div class="border rounded-lg overflow-hidden bg-muted/20">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">Document Preview</h3>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              (click)="toggleFullscreen()"
+              title="Toggle fullscreen"
+              class="h-7 px-2"
+            >
+              @if (isFullscreen()) {
+                <span class="text-sm">⊗ Exit Fullscreen</span>
+              } @else {
+                <span class="text-sm">⛶ Fullscreen</span>
+              }
+            </button>
+          </div>
+          <div #previewContainer class="border rounded-lg overflow-hidden bg-muted/20">
             @if (fileType() === 'pdf') {
               <!-- PDF Preview using iframe -->
               <iframe

@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal, viewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -34,6 +34,9 @@ export class DocumentPreviewPanelComponent {
   private toastService = inject(ToastService);
   private sanitizer = inject(DomSanitizer);
 
+  // View references
+  previewContainer = viewChild<ElementRef>('previewContainer');
+
   // Inputs
   documentId = input.required<string>();
   isOpen = input<boolean>(false);
@@ -46,6 +49,7 @@ export class DocumentPreviewPanelComponent {
   loading = signal(false);
   editingField = signal<string | null>(null);
   editValue = signal('');
+  isFullscreen = signal(false);
 
   // Computed
   topFields = computed(() => {
@@ -85,6 +89,11 @@ export class DocumentPreviewPanelComponent {
         this.loadDocument(id);
       }
     }, { allowSignalWrites: true });
+
+    // Listen for fullscreen changes (e.g., ESC key)
+    document.addEventListener('fullscreenchange', () => {
+      this.isFullscreen.set(!!document.fullscreenElement);
+    });
   }
 
   private loadDocument(id: string) {
@@ -104,6 +113,25 @@ export class DocumentPreviewPanelComponent {
 
   close() {
     this.closed.emit();
+  }
+
+  toggleFullscreen() {
+    const container = this.previewContainer()?.nativeElement;
+    if (!container) return;
+
+    if (!document.fullscreenElement) {
+      // Enter fullscreen
+      container.requestFullscreen().then(() => {
+        this.isFullscreen.set(true);
+      }).catch((err: Error) => {
+        this.toastService.error('Failed to enter fullscreen', err.message);
+      });
+    } else {
+      // Exit fullscreen
+      document.exitFullscreen().then(() => {
+        this.isFullscreen.set(false);
+      });
+    }
   }
 
   startEdit(field: ExtractedField) {
