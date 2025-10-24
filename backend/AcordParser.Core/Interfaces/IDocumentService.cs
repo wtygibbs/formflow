@@ -12,4 +12,5 @@ public interface IDocumentService
     Task<bool> UpdateExtractedFieldAsync(Guid fieldId, string userId, UpdateFieldRequest request);
     Task<byte[]> ExportToCsvAsync(Guid documentId, string userId);
     Task ProcessDocumentAsync(Guid documentId);
+    Task<DashboardMetrics> GetDashboardMetricsAsync(string userId);
 }

@@ -376,4 +376,136 @@ public class DocumentService : IDocumentService
 
         await _notificationService.SendProcessingProgressAsync(userId, progress);
     }
+
+    public async Task<DashboardMetrics> GetDashboardMetricsAsync(string userId)
+    {
+        var now = DateTime.UtcNow;
+        var today = now.Date;
+        var weekAgo = now.AddDays(-7);
+        var monthAgo = now.AddDays(-30);
+
+        var documents = await _context.Documents
+            .Where(d => d.UserId == userId)
+            .Include(d => d.ExtractedFields)
+            .ToListAsync();
+
+        // Document Stats
+        var documentStats = new DocumentStats
+        {
+            TotalDocuments = documents.Count,
+            CompletedDocuments = documents.Count(d => d.Status == DocumentStatus.Completed),
+            ProcessingDocuments = documents.Count(d => d.Status == DocumentStatus.Processing),
+            FailedDocuments = documents.Count(d => d.Status == DocumentStatus.Failed),
+            UploadedDocuments = documents.Count(d => d.Status == DocumentStatus.Uploaded)
+        };
+
+        // Processing Stats
+        var completedDocs = documents.Where(d => d.Status == DocumentStatus.Completed && d.ProcessedAt.HasValue).ToList();
+        var avgProcessingTime = completedDocs.Any()
+            ? completedDocs
+                .Where(d => d.ProcessedAt.HasValue)
+                .Average(d => (d.ProcessedAt!.Value - d.UploadedAt).TotalSeconds)
+            : 0;
+
+        var processingStats = new ProcessingStats
+        {
+            AverageProcessingTimeSeconds = Math.Round(avgProcessingTime, 2),
+            SuccessRate = documents.Count > 0
+                ? Math.Round((double)documentStats.CompletedDocuments / documents.Count * 100, 2)
+                : 0,
+            TotalFieldsExtracted = documents.SelectMany(d => d.ExtractedFields).Count(),
+            DocumentsProcessedToday = completedDocs.Count(d => d.ProcessedAt!.Value.Date == today),
+            DocumentsProcessedThisWeek = completedDocs.Count(d => d.ProcessedAt!.Value >= weekAgo),
+            DocumentsProcessedThisMonth = completedDocs.Count(d => d.ProcessedAt!.Value >= monthAgo)
+        };
+
+        // Quality Metrics
+        var allFields = documents.SelectMany(d => d.ExtractedFields).ToList();
+        var highConfidence = allFields.Count(f => f.Confidence > 0.8);
+        var mediumConfidence = allFields.Count(f => f.Confidence > 0.6 && f.Confidence <= 0.8);
+        var lowConfidence = allFields.Count(f => f.Confidence <= 0.6);
+        var verifiedFields = allFields.Count(f => f.IsVerified);
+
+        var qualityMetrics = new QualityMetrics
+        {
+            AverageConfidence = allFields.Any()
+                ? Math.Round(allFields.Average(f => f.Confidence) * 100, 2)
+                : 0,
+            HighConfidenceFields = highConfidence,
+            MediumConfidenceFields = mediumConfidence,
+            LowConfidenceFields = lowConfidence,
+            VerifiedFields = verifiedFields,
+            VerificationRate = allFields.Any()
+                ? Math.Round((double)verifiedFields / allFields.Count * 100, 2)
+                : 0
+        };
+
+        // Processing Trends (last 30 days)
+        var processingTrends = new List<ProcessingTrend>();
+        for (int i = 29; i >= 0; i--)
+        {
+            var date = today.AddDays(-i);
+            var nextDate = date.AddDays(1);
+
+            var docsOnDate = completedDocs.Where(d => d.ProcessedAt!.Value >= date && d.ProcessedAt.Value < nextDate).ToList();
+            var failedOnDate = documents.Where(d =>
+                d.Status == DocumentStatus.Failed &&
+                d.UploadedAt >= date &&
+                d.UploadedAt < nextDate).ToList();
+
+            processingTrends.Add(new ProcessingTrend
+            {
+                Date = date,
+                DocumentsProcessed = docsOnDate.Count + failedOnDate.Count,
+                SuccessfulDocuments = docsOnDate.Count,
+                FailedDocuments = failedOnDate.Count
+            });
+        }
+
+        // Status Breakdown
+        var statusBreakdown = new List<StatusBreakdown>
+        {
+            new StatusBreakdown
+            {
+                Status = "Uploaded",
+                Count = documentStats.UploadedDocuments,
+                Percentage = documents.Count > 0
+                    ? Math.Round((double)documentStats.UploadedDocuments / documents.Count * 100, 2)
+                    : 0
+            },
+            new StatusBreakdown
+            {
+                Status = "Processing",
+                Count = documentStats.ProcessingDocuments,
+                Percentage = documents.Count > 0
+                    ? Math.Round((double)documentStats.ProcessingDocuments / documents.Count * 100, 2)
+                    : 0
+            },
+            new StatusBreakdown
+            {
+                Status = "Completed",
+                Count = documentStats.CompletedDocuments,
+                Percentage = documents.Count > 0
+                    ? Math.Round((double)documentStats.CompletedDocuments / documents.Count * 100, 2)
+                    : 0
+            },
+            new StatusBreakdown
+            {
+                Status = "Failed",
+                Count = documentStats.FailedDocuments,
+                Percentage = documents.Count > 0
+                    ? Math.Round((double)documentStats.FailedDocuments / documents.Count * 100, 2)
+                    : 0
+            }
+        };
+
+        return new DashboardMetrics
+        {
+            DocumentStats = documentStats,
+            ProcessingStats = processingStats,
+            QualityMetrics = qualityMetrics,
+            ProcessingTrends = processingTrends,
+            StatusBreakdown = statusBreakdown
+        };
+    }
 }

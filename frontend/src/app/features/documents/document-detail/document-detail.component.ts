@@ -1,9 +1,11 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/services/document.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { SignalRService, ProcessingProgress } from '../../../core/services/signalr.service';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
@@ -11,6 +13,7 @@ import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
+import { HlmProgressImports } from '@spartan-ng/helm/progress';
 
 @Component({
   selector: 'app-document-detail',
@@ -25,7 +28,8 @@ import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
     ...HlmAlertImports,
     ...HlmSpinnerImports,
     ...HlmInputImports,
-    ...HlmSkeletonImports
+    ...HlmSkeletonImports,
+    ...HlmProgressImports
   ],
   template: `
     <div class="space-y-6">
@@ -117,10 +121,34 @@ import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
         }
 
         @if (doc.status === 1) {
-          <div hlmAlert class="flex items-center gap-2">
-            <hlm-spinner class="size-4" />
-            <p hlmAlertDescription>Document is currently being processed. This may take a few minutes...</p>
-          </div>
+          @if (processingProgress(); as progress) {
+            <div hlmCard>
+              <div hlmCardContent class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-lg font-semibold">Processing Document...</h3>
+                  <span class="text-2xl font-bold text-primary">{{ progress.percentComplete }}%</span>
+                </div>
+                <hlm-progress [value]="progress.percentComplete" class="h-3" />
+                <div class="flex justify-between items-center text-sm">
+                  <span class="text-muted-foreground">{{ progress.currentStep }}</span>
+                  @if (progress.estimatedSecondsRemaining) {
+                    <span class="text-muted-foreground">ETA: {{ progress.estimatedSecondsRemaining }}s</span>
+                  }
+                </div>
+                @if (progress.processedFields > 0) {
+                  <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>Extracting fields:</span>
+                    <span class="font-medium text-foreground">{{ progress.processedFields }} / {{ progress.totalFields }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          } @else {
+            <div hlmAlert class="flex items-center gap-2">
+              <hlm-spinner class="size-4" />
+              <p hlmAlertDescription>Document is currently being processed. This may take a few minutes...</p>
+            </div>
+          }
         }
 
         <!-- Extracted Fields -->
@@ -221,22 +249,56 @@ import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
   `,
   styles: []
 })
-export class DocumentDetailComponent implements OnInit {
+export class DocumentDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private documentService = inject(DocumentService);
   private toastService = inject(ToastService);
+  private signalRService = inject(SignalRService);
 
   document = signal<DocumentDetail | null>(null);
   loading = signal(true);
   editingField = signal<string | null>(null);
   editValue = '';
+  processingProgress = signal<ProcessingProgress | null>(null);
+  private subscriptions: Subscription[] = [];
+  private currentDocumentId?: string;
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
+      this.currentDocumentId = id;
       this.loadDocument(id);
+      this.setupSignalRSubscriptions();
     }
+  }
+
+  ngOnDestroy() {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  private setupSignalRSubscriptions() {
+    const progressSub = this.signalRService.processingProgress$.subscribe(progress => {
+      if (progress.documentId === this.currentDocumentId) {
+        this.processingProgress.set(progress);
+      }
+    });
+
+    const completeSub = this.signalRService.processingComplete$.subscribe(complete => {
+      if (complete.documentId === this.currentDocumentId) {
+        this.processingProgress.set(null);
+        if (complete.success) {
+          this.toastService.success('Document processed successfully!', 'All fields have been extracted');
+        } else {
+          this.toastService.error('Document processing failed', 'Please check the error details');
+        }
+        if (this.currentDocumentId) {
+          this.loadDocument(this.currentDocumentId);
+        }
+      }
+    });
+
+    this.subscriptions.push(progressSub, completeSub);
   }
 
   loadDocument(id: string) {

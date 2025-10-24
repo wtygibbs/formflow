@@ -414,6 +414,16 @@ app.MapGet("/api/documents/{documentId}/export", async (Guid documentId, IDocume
 .WithName("ExportDocument")
 .WithTags("Documents");
 
+app.MapGet("/api/documents/dashboard/metrics", async (IDocumentService documentService, ClaimsPrincipal user) =>
+{
+    var userId = GetUserId(user);
+    var metrics = await documentService.GetDashboardMetricsAsync(userId);
+    return Results.Ok(metrics);
+})
+.RequireAuthorization()
+.WithName("GetDashboardMetrics")
+.WithTags("Documents");
+
 // ==================== SUBSCRIPTION ENDPOINTS ====================
 
 app.MapGet("/api/subscription", async (ISubscriptionService subscriptionService, ClaimsPrincipal user) =>
