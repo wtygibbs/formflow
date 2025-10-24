@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { CdkDropList, CdkDrag, CdkDragDrop } from '@angular/cdk/drag-drop';
 import { BrnSelectImports } from '@spartan-ng/brain/select';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
@@ -13,10 +14,20 @@ import { HlmProgressImports } from '@spartan-ng/helm/progress';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
+import { HlmIconImports } from '@spartan-ng/helm/icon';
 import { debounceTime, Subject, Subscription } from 'rxjs';
 import { DocumentListItem, DocumentService, PaginatedResponse, PaginationRequest } from '../../../core/services/document.service';
 import { ProcessingProgress, SignalRService } from '../../../core/services/signalr.service';
 import { ToastService } from '../../../core/services/toast.service';
+
+interface QueuedFile {
+  file: File;
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  sizeFormatted: string;
+}
 
 @Component({
   selector: 'app-document-list',
@@ -25,6 +36,8 @@ import { ToastService } from '../../../core/services/toast.service';
     CommonModule,
     RouterLink,
     FormsModule,
+    CdkDropList,
+    CdkDrag,
     ...HlmCardImports,
     ...HlmButtonImports,
     ...HlmBadgeImports,
@@ -35,33 +48,147 @@ import { ToastService } from '../../../core/services/toast.service';
     ...HlmSkeletonImports,
     ...HlmPaginationImports,
     ...HlmProgressImports,
+    ...HlmIconImports,
     ...BrnSelectImports
   ],
   template: `
-    <div class="space-y-6"
-         (dragover)="onDragOver($event)"
-         (dragleave)="onDragLeave($event)"
-         (drop)="onDrop($event)">
-
-      <!-- Drag-and-drop overlay -->
-      @if (isDraggingOver()) {
-        <div class="fixed inset-0 z-50 bg-primary/10 backdrop-blur-sm flex items-center justify-center">
-          <div class="bg-background border-2 border-dashed border-primary rounded-lg p-12 text-center">
-            <div class="text-6xl mb-4">📄</div>
-            <h2 class="text-2xl font-bold mb-2">Drop files to upload</h2>
-            <p class="text-muted-foreground">Upload multiple documents at once</p>
-          </div>
-        </div>
-      }
-
+    <div class="space-y-6">
       <!-- Header -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 class="text-3xl font-bold">Documents</h1>
-        <div class="flex gap-2 w-full sm:w-auto">
-          <label hlmBtn class="cursor-pointer flex-1 sm:flex-none">
-            <input type="file" (change)="onFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.tiff" multiple hidden />
-            Upload Document(s)
-          </label>
+      </div>
+
+      <!-- Upload Zone -->
+      <div hlmCard>
+        <div hlmCardContent>
+          <div
+            cdkDropList
+            (cdkDropListDropped)="onFilesDropped($event)"
+            class="border-2 border-dashed rounded-lg transition-all duration-200"
+            [class.border-primary]="isDraggingOver()"
+            [class.bg-primary/5]="isDraggingOver()"
+            [class.border-muted-foreground/30]="!isDraggingOver()"
+            (dragover)="onDragOver($event)"
+            (dragleave)="onDragLeave($event)"
+            (drop)="onDrop($event)"
+          >
+            <div class="p-8 text-center">
+              @if (fileQueue().length === 0) {
+                <!-- Empty State -->
+                <div class="space-y-4">
+                  <div class="flex justify-center">
+                    <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span class="text-3xl">📄</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-semibold mb-1">Drop files here to upload</h3>
+                    <p class="text-sm text-muted-foreground mb-4">
+                      or click to browse • PDF, PNG, JPG, JPEG, TIFF • Max 10MB
+                    </p>
+                  </div>
+                  <label hlmBtn class="cursor-pointer">
+                    <input
+                      #fileInput
+                      type="file"
+                      (change)="onFileSelected($event)"
+                      accept=".pdf,.png,.jpg,.jpeg,.tiff"
+                      multiple
+                      hidden
+                    />
+                    Browse Files
+                  </label>
+                </div>
+              } @else {
+                <!-- File Queue -->
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">
+                      {{ fileQueue().length }} file(s) ready to upload
+                    </h3>
+                    <div class="flex gap-2">
+                      <button hlmBtn variant="outline" size="sm" (click)="clearQueue()">
+                        Clear All
+                      </button>
+                      <button hlmBtn size="sm" (click)="uploadQueuedFiles()" [disabled]="uploading()">
+                        @if (uploading()) {
+                          <hlm-spinner class="size-4 mr-2" />
+                        }
+                        Upload {{ fileQueue().length }} File(s)
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- File List -->
+                  <div class="space-y-2 max-h-64 overflow-y-auto">
+                    @for (queuedFile of fileQueue(); track queuedFile.id) {
+                      <div class="flex items-center gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                        <!-- File Icon -->
+                        <div class="flex-shrink-0 w-10 h-10 rounded bg-primary/10 flex items-center justify-center">
+                          @switch (queuedFile.type) {
+                            @case ('application/pdf') {
+                              <span class="text-lg">📄</span>
+                            }
+                            @case ('image/png') {
+                              <span class="text-lg">🖼️</span>
+                            }
+                            @case ('image/jpeg') {
+                              <span class="text-lg">🖼️</span>
+                            }
+                            @case ('image/jpg') {
+                              <span class="text-lg">🖼️</span>
+                            }
+                            @case ('image/tiff') {
+                              <span class="text-lg">🖼️</span>
+                            }
+                            @default {
+                              <span class="text-lg">📎</span>
+                            }
+                          }
+                        </div>
+
+                        <!-- File Info -->
+                        <div class="flex-1 min-w-0">
+                          <p class="font-medium text-sm truncate" [title]="queuedFile.name">
+                            {{ queuedFile.name }}
+                          </p>
+                          <p class="text-xs text-muted-foreground">
+                            {{ queuedFile.sizeFormatted }}
+                          </p>
+                        </div>
+
+                        <!-- Remove Button -->
+                        <button
+                          hlmBtn
+                          variant="ghost"
+                          size="sm"
+                          class="flex-shrink-0"
+                          (click)="removeFromQueue(queuedFile.id)"
+                          [disabled]="uploading()"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Add More Files -->
+                  <div class="pt-3 border-t">
+                    <label hlmBtn variant="outline" size="sm" class="cursor-pointer">
+                      <input
+                        type="file"
+                        (change)="onFileSelected($event)"
+                        accept=".pdf,.png,.jpg,.jpeg,.tiff"
+                        multiple
+                        hidden
+                      />
+                      + Add More Files
+                    </label>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
         </div>
       </div>
 
@@ -166,14 +293,6 @@ import { ToastService } from '../../../core/services/toast.service';
         </div>
       </div>
 
-      <!-- Uploading Alert -->
-      @if (uploading()) {
-        <div hlmAlert class="flex items-center gap-2">
-          <hlm-spinner class="size-4" />
-          <p hlmAlertDescription>Uploading document(s)...</p>
-        </div>
-      }
-
       <!-- View Mode Toggle & Bulk Actions -->
       @if (!loading() && documents().length > 0) {
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -253,11 +372,7 @@ import { ToastService } from '../../../core/services/toast.service';
               <button hlmBtn variant="outline" (click)="clearFilters()">Clear Filters</button>
             } @else {
               <h2 class="text-2xl font-semibold mb-2">No Documents Yet</h2>
-              <p class="text-muted-foreground mb-6">Upload your first ACORD 125 form to get started</p>
-              <label hlmBtn class="cursor-pointer">
-                <input type="file" (change)="onFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.tiff" hidden />
-                Upload Your First Document
-              </label>
+              <p class="text-muted-foreground mb-6">Use the upload zone above to add your first ACORD 125 form</p>
             }
           </div>
         </div>
@@ -494,6 +609,7 @@ export class DocumentListComponent implements OnInit, OnDestroy {
 
   // Drag-and-drop state
   isDraggingOver = signal(false);
+  fileQueue = signal<QueuedFile[]>([]);
 
   // View mode state
   viewMode = signal<'grid' | 'table'>('grid');
@@ -505,6 +621,7 @@ export class DocumentListComponent implements OnInit, OnDestroy {
   // Search debounce
   private searchSubject = new Subject<string>();
   private subscriptions: Subscription[] = [];
+  private dragCounter = 0; // Prevents flickering
 
   // Expose Math for template
   Math = Math;
@@ -652,30 +769,10 @@ export class DocumentListComponent implements OnInit, OnDestroy {
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      const file = input.files[0];
-      this.uploadDocument(file);
+    if (input.files && input.files.length > 0) {
+      this.addFilesToQueue(Array.from(input.files));
       input.value = ''; // Reset input
     }
-  }
-
-  uploadDocument(file: File) {
-    this.uploading.set(true);
-
-    const uploadPromise = this.documentService.uploadDocument(file).toPromise();
-
-    this.toastService.promise(uploadPromise!, {
-      loading: 'Uploading document...',
-      success: 'Document uploaded successfully!',
-      error: 'Failed to upload document'
-    });
-
-    uploadPromise!.then(() => {
-      this.uploading.set(false);
-      this.loadDocuments();
-    }).catch(() => {
-      this.uploading.set(false);
-    });
   }
 
   downloadCsv(documentId: string, fileName: string) {
@@ -692,61 +789,116 @@ export class DocumentListComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Drag-and-drop handlers
+  // Improved drag-and-drop handlers (prevents flickering)
   onDragOver(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
-    this.isDraggingOver.set(true);
+
+    // Only set dragging state on first enter
+    if (this.dragCounter === 0) {
+      this.isDraggingOver.set(true);
+    }
+    this.dragCounter++;
   }
 
   onDragLeave(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
-    this.isDraggingOver.set(false);
+
+    // Only clear dragging state when fully leaving
+    this.dragCounter--;
+    if (this.dragCounter === 0) {
+      this.isDraggingOver.set(false);
+    }
   }
 
   onDrop(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
+
     this.isDraggingOver.set(false);
+    this.dragCounter = 0;
 
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
-      this.uploadMultipleDocuments(Array.from(files));
+      this.addFilesToQueue(Array.from(files));
     }
   }
 
-  uploadMultipleDocuments(files: File[]) {
-    const validFiles = files.filter(file => {
-      const validExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff'];
+  onFilesDropped(event: CdkDragDrop<any>) {
+    // This is for CDK drop list - we handle via onDrop instead
+  }
+
+  // File queue management
+  addFilesToQueue(files: File[]) {
+    const validExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff'];
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+
+    const newFiles: QueuedFile[] = [];
+    let invalidCount = 0;
+    let oversizedCount = 0;
+
+    files.forEach(file => {
       const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-      return validExtensions.includes(extension);
+
+      if (!validExtensions.includes(extension)) {
+        invalidCount++;
+        return;
+      }
+
+      if (file.size > maxFileSize) {
+        oversizedCount++;
+        this.toastService.warning('File too large', `${file.name} exceeds 10MB limit`);
+        return;
+      }
+
+      newFiles.push({
+        file,
+        id: Math.random().toString(36).substring(7),
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        sizeFormatted: this.formatFileSize(file.size)
+      });
     });
 
-    if (validFiles.length === 0) {
-      this.toastService.error('Invalid file type', 'Please upload PDF, PNG, JPG, or TIFF files');
-      return;
+    if (invalidCount > 0) {
+      this.toastService.warning('Invalid files skipped',
+        `${invalidCount} file(s) were not valid (PDF, PNG, JPG, JPEG, TIFF only)`);
     }
 
-    if (validFiles.length !== files.length) {
-      this.toastService.warning('Some files skipped', `${files.length - validFiles.length} file(s) had invalid types`);
+    if (newFiles.length > 0) {
+      this.fileQueue.set([...this.fileQueue(), ...newFiles]);
     }
+  }
+
+  removeFromQueue(id: string) {
+    this.fileQueue.set(this.fileQueue().filter(f => f.id !== id));
+  }
+
+  clearQueue() {
+    this.fileQueue.set([]);
+  }
+
+  uploadQueuedFiles() {
+    const files = this.fileQueue().map(f => f.file);
+    if (files.length === 0) return;
 
     this.uploading.set(true);
     let uploadedCount = 0;
     let failedCount = 0;
 
-    validFiles.forEach((file, index) => {
+    files.forEach(file => {
       this.documentService.uploadDocument(file).subscribe({
         next: () => {
           uploadedCount++;
-          if (uploadedCount + failedCount === validFiles.length) {
+          if (uploadedCount + failedCount === files.length) {
             this.finishMultiUpload(uploadedCount, failedCount);
           }
         },
         error: () => {
           failedCount++;
-          if (uploadedCount + failedCount === validFiles.length) {
+          if (uploadedCount + failedCount === files.length) {
             this.finishMultiUpload(uploadedCount, failedCount);
           }
         }
@@ -756,15 +908,27 @@ export class DocumentListComponent implements OnInit, OnDestroy {
 
   private finishMultiUpload(uploaded: number, failed: number) {
     this.uploading.set(false);
+    this.clearQueue();
     this.loadDocuments();
 
     if (failed === 0) {
-      this.toastService.success(`${uploaded} document(s) uploaded successfully!`, 'Processing will begin shortly');
+      this.toastService.success(
+        `${uploaded} document(s) uploaded successfully!`,
+        'Processing will begin shortly'
+      );
     } else if (uploaded === 0) {
       this.toastService.error('Upload failed', `All ${failed} document(s) failed to upload`);
     } else {
       this.toastService.warning('Partial upload', `${uploaded} succeeded, ${failed} failed`);
     }
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   }
 
   // Bulk selection handlers
