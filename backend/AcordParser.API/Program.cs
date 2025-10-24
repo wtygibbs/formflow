@@ -434,10 +434,26 @@ app.MapGet("/api/documents/{documentId}/file", async (Guid documentId, IDocument
             return Results.NotFound(new { error = "Document not found" });
         }
 
-        // Get the blob URL (this assumes the blob is publicly accessible or we have SAS tokens)
-        // For now, we'll redirect to the blob storage URL
-        // In production, you might want to stream the file through your API
-        return Results.Redirect(document.FileUrl ?? string.Empty);
+        if (string.IsNullOrEmpty(document.FileUrl))
+        {
+            return Results.NotFound(new { error = "Document file not found" });
+        }
+
+        // Download the file from blob storage and stream it to the client
+        var fileStream = await blobStorage.DownloadFileAsync(document.FileUrl);
+
+        // Determine content type based on file extension
+        var extension = Path.GetExtension(document.FileName).ToLowerInvariant();
+        var contentType = extension switch
+        {
+            ".pdf" => "application/pdf",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".tiff" or ".tif" => "image/tiff",
+            _ => "application/octet-stream"
+        };
+
+        return Results.Stream(fileStream, contentType, enableRangeProcessing: true);
     }
     catch (Exception ex)
     {

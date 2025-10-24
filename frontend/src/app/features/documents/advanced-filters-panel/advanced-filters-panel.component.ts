@@ -124,10 +124,34 @@ export class AdvancedFiltersPanelComponent {
 
   onDateRangeChange(range: string) {
     this.filters.update(f => ({ ...f, dateRange: range as any }));
+    this.selectedPreset.set(null); // Clear preset selection when manually changing filters
+  }
+
+  onCustomStartDateChange(value: string) {
+    this.filters.update(f => ({ ...f, customStartDate: value || undefined }));
+    this.selectedPreset.set(null);
+  }
+
+  onCustomEndDateChange(value: string) {
+    this.filters.update(f => ({ ...f, customEndDate: value || undefined }));
+    this.selectedPreset.set(null);
   }
 
   onConfidenceChange(value: string) {
     this.filters.update(f => ({ ...f, minConfidence: parseInt(value) }));
+    this.selectedPreset.set(null);
+  }
+
+  onMinFieldCountChange(value: string) {
+    const numValue = value ? parseInt(value) : undefined;
+    this.filters.update(f => ({ ...f, minFieldCount: numValue }));
+    this.selectedPreset.set(null);
+  }
+
+  onMaxFieldCountChange(value: string) {
+    const numValue = value ? parseInt(value) : undefined;
+    this.filters.update(f => ({ ...f, maxFieldCount: numValue }));
+    this.selectedPreset.set(null);
   }
 
   toggleFileType(fileType: string) {
@@ -141,6 +165,7 @@ export class AdvancedFiltersPanelComponent {
       }
       return { ...f, fileTypes: types };
     });
+    this.selectedPreset.set(null);
   }
 
   isFileTypeSelected(fileType: string): boolean {

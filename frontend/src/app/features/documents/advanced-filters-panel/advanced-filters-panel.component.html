@@ -65,7 +65,8 @@
             <input
               hlmInput
               type="date"
-              [(ngModel)]="filters().customStartDate"
+              [value]="filters().customStartDate ?? ''"
+              (input)="onCustomStartDateChange($any($event.target).value)"
               class="w-full mt-1"
             />
           </div>
@@ -74,7 +75,8 @@
             <input
               hlmInput
               type="date"
-              [(ngModel)]="filters().customEndDate"
+              [value]="filters().customEndDate ?? ''"
+              (input)="onCustomEndDateChange($any($event.target).value)"
               class="w-full mt-1"
             />
           </div>
@@ -128,7 +130,8 @@
           <input
             hlmInput
             type="number"
-            [(ngModel)]="filters().minFieldCount"
+            [value]="filters().minFieldCount ?? ''"
+            (input)="onMinFieldCountChange($any($event.target).value)"
             placeholder="No min"
             class="w-full mt-1"
             min="0"
@@ -139,7 +142,8 @@
           <input
             hlmInput
             type="number"
-            [(ngModel)]="filters().maxFieldCount"
+            [value]="filters().maxFieldCount ?? ''"
+            (input)="onMaxFieldCountChange($any($event.target).value)"
             placeholder="No max"
             class="w-full mt-1"
             min="0"
