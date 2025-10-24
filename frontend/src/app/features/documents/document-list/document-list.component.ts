@@ -286,7 +286,7 @@ import { SignalRService, ProcessingProgress } from '../../../core/services/signa
                   <button
                     hlmPaginationLink
                     [isActive]="page === paginationData()!.page"
-                    (click)="goToPage(page as number)"
+                    (click)="goToPage($any(page))"
                   >
                     {{ page }}
                   </button>

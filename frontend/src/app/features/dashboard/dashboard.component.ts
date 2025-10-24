@@ -14,9 +14,9 @@ import { NgApexchartsModule, ChartComponent, ApexChart, ApexXAxis, ApexYAxis, Ap
 export type ChartOptions = {
   series: any[];
   chart: ApexChart;
-  xaxis: ApexXAxis;
+  xaxis?: ApexXAxis;
   yaxis?: ApexYAxis;
-  dataLabels: ApexDataLabels;
+  dataLabels?: ApexDataLabels;
   stroke?: ApexStroke;
   legend?: ApexLegend;
   fill?: ApexFill;
@@ -141,17 +141,17 @@ export type ChartOptions = {
           <div hlmCard>
             <div hlmCardContent>
               <h2 class="text-xl font-semibold mb-4">Processing Trends (30 Days)</h2>
-              @if (trendChartOptions()) {
+              @if (trendChartOptions(); as options) {
                 <apx-chart
-                  [series]="trendChartOptions()!.series"
-                  [chart]="trendChartOptions()!.chart"
-                  [xaxis]="trendChartOptions()!.xaxis"
-                  [dataLabels]="trendChartOptions()!.dataLabels"
-                  [stroke]="trendChartOptions()!.stroke"
-                  [legend]="trendChartOptions()!.legend"
-                  [colors]="trendChartOptions()!.colors"
-                  [fill]="trendChartOptions()!.fill"
-                  [tooltip]="trendChartOptions()!.tooltip"
+                  [series]="options.series"
+                  [chart]="options.chart"
+                  [xaxis]="options.xaxis!"
+                  [dataLabels]="options.dataLabels!"
+                  [stroke]="options.stroke!"
+                  [legend]="options.legend!"
+                  [colors]="options.colors!"
+                  [fill]="options.fill!"
+                  [tooltip]="options.tooltip!"
                 ></apx-chart>
               }
             </div>
@@ -161,16 +161,16 @@ export type ChartOptions = {
           <div hlmCard>
             <div hlmCardContent>
               <h2 class="text-xl font-semibold mb-4">Document Status Distribution</h2>
-              @if (statusChartOptions()) {
+              @if (statusChartOptions(); as options) {
                 <apx-chart
-                  [series]="statusChartOptions()!.series"
-                  [chart]="statusChartOptions()!.chart"
-                  [labels]="statusChartOptions()!.labels"
-                  [dataLabels]="statusChartOptions()!.dataLabels"
-                  [colors]="statusChartOptions()!.colors"
-                  [legend]="statusChartOptions()!.legend"
-                  [plotOptions]="statusChartOptions()!.plotOptions"
-                  [tooltip]="statusChartOptions()!.tooltip"
+                  [series]="options.series"
+                  [chart]="options.chart"
+                  [labels]="options.labels!"
+                  [dataLabels]="options.dataLabels!"
+                  [colors]="options.colors!"
+                  [legend]="options.legend!"
+                  [plotOptions]="options.plotOptions!"
+                  [tooltip]="options.tooltip!"
                 ></apx-chart>
               }
             </div>
