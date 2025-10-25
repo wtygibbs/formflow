@@ -88,10 +88,7 @@ public class DocumentService : IDocumentService
         // Enqueue document for background processing
         if (_backgroundTaskQueue != null)
         {
-            await _backgroundTaskQueue.QueueBackgroundWorkItemAsync(async token =>
-            {
-                await ProcessDocumentAsync(document.Id);
-            });
+            await _backgroundTaskQueue.QueueDocumentAsync(document.Id);
         }
         else
         {

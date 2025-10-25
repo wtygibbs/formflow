@@ -6,14 +6,14 @@ namespace AcordParser.Core.Interfaces;
 public interface IBackgroundTaskQueue
 {
     /// <summary>
-    /// Enqueue a background task
+    /// Enqueue a document for processing
     /// </summary>
-    ValueTask QueueBackgroundWorkItemAsync(Func<CancellationToken, ValueTask> workItem);
+    ValueTask QueueDocumentAsync(Guid documentId);
 
     /// <summary>
-    /// Dequeue a background task (called by the background service)
+    /// Dequeue a document ID (called by the background service)
     /// </summary>
-    ValueTask<Func<CancellationToken, ValueTask>> DequeueAsync(CancellationToken cancellationToken);
+    ValueTask<Guid> DequeueAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Get the current queue count
