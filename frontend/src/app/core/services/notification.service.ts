@@ -36,10 +36,8 @@ export class NotificationService {
   );
 
   constructor() {
-    // Load notifications on init if authenticated
-    if (this.authService.isAuthenticated()) {
-      this.loadNotifications();
-    }
+    // Don't load notifications in constructor - can cause auth issues on startup
+    // Load them when navbar mounts instead
 
     // Effect to handle incoming real-time notifications
     effect(() => {
@@ -53,6 +51,15 @@ export class NotificationService {
         this.showToast(notification as Notification);
       }
     }, { allowSignalWrites: true });
+  }
+
+  /**
+   * Initialize - load notifications (call this from navbar component)
+   */
+  initialize(): void {
+    if (this.authService.isAuthenticated() && this.notifications().length === 0) {
+      this.loadNotifications();
+    }
   }
 
   /**

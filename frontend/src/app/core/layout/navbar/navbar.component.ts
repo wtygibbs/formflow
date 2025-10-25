@@ -176,6 +176,13 @@ export class NavbarComponent {
 
   showNotifications = signal<boolean>(false);
 
+  constructor() {
+    // Initialize notifications when navbar loads (if user is authenticated)
+    if (this.authService.isAuthenticated()) {
+      this.notificationService.initialize();
+    }
+  }
+
   toggleTheme(): void {
     this.themeService.toggleTheme();
   }

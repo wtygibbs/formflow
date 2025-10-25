@@ -51,10 +51,15 @@ export class AuthService {
           subscriptionTier: this.mapSubscriptionTier(profile.subscriptionTier)
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load user profile:', error);
-      // If profile load fails (e.g., token expired), clear auth state
-      this.logout();
+      // Don't logout on profile load failure - token might still be valid
+      // Only logout if it's a 401 Unauthorized (token actually expired/invalid)
+      if (error.status === 401) {
+        console.log('Token invalid - logging out');
+        this.logout();
+      }
+      // For other errors (network, 500, etc), keep user logged in
     }
   }
 
