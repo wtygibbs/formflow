@@ -25,6 +25,17 @@ export interface DashboardUpdate {
   timestamp: string;
 }
 
+export interface NotificationEvent {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+  relatedEntityId: string | null;
+  actionUrl: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -36,11 +47,13 @@ export class SignalRService {
   private processingProgressSubject = new Subject<ProcessingProgress>();
   private processingCompleteSubject = new Subject<ProcessingComplete>();
   private dashboardUpdateSubject = new Subject<DashboardUpdate>();
+  private notificationSubject = new Subject<NotificationEvent>();
 
   // Public observables
   processingProgress$: Observable<ProcessingProgress> = this.processingProgressSubject.asObservable();
   processingComplete$: Observable<ProcessingComplete> = this.processingCompleteSubject.asObservable();
   dashboardUpdate$: Observable<DashboardUpdate> = this.dashboardUpdateSubject.asObservable();
+  notification$: Observable<NotificationEvent> = this.notificationSubject.asObservable();
   connectionState$: Observable<signalR.HubConnectionState> = this.connectionState.asObservable();
 
   constructor() {}
@@ -130,6 +143,12 @@ export class SignalRService {
     this.hubConnection.on('DashboardUpdate', (update: DashboardUpdate) => {
       console.log('Dashboard update received:', update);
       this.dashboardUpdateSubject.next(update);
+    });
+
+    // Notification
+    this.hubConnection.on('Notification', (notification: NotificationEvent) => {
+      console.log('Notification received:', notification);
+      this.notificationSubject.next(notification);
     });
   }
 }

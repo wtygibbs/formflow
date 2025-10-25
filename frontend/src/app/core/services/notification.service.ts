@@ -1,10 +1,9 @@
 import { Injectable, inject, signal, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { environment } from '../../../environments/environment';
-import * as signalR from '@microsoft/signalr';
 import { AuthService } from './auth.service';
+import { SignalRService } from './signalr.service';
 
 export interface Notification {
   id: string;
@@ -24,77 +23,36 @@ export interface Notification {
 export class NotificationService {
   private http = inject(HttpClient);
   private authService = inject(AuthService);
-
-  private hubConnection?: signalR.HubConnection;
+  private signalRService = inject(SignalRService);
 
   // Signals for reactive state
   notifications = signal<Notification[]>([]);
   unreadCount = signal<number>(0);
-  isConnected = signal<boolean>(false);
+
+  // Convert SignalR notification observable to signal
+  private notificationEvent = toSignal(
+    this.signalRService.notification$,
+    { initialValue: null }
+  );
 
   constructor() {
-    // Initialize SignalR connection when user is authenticated
+    // Load notifications on init if authenticated
     if (this.authService.isAuthenticated()) {
-      this.initializeSignalR();
       this.loadNotifications();
     }
 
-    // Watch for auth state changes using effect
+    // Effect to handle incoming real-time notifications
     effect(() => {
-      const isAuth = this.authService.isAuthenticated();
-      if (isAuth && !this.isConnected()) {
-        this.initializeSignalR();
-        this.loadNotifications();
-      } else if (!isAuth && this.isConnected()) {
-        this.disconnectSignalR();
+      const notification = this.notificationEvent();
+      if (notification) {
+        console.log('Received notification:', notification);
+        this.notifications.update(current => [notification as Notification, ...current]);
+        this.unreadCount.update(count => count + 1);
+
+        // Show toast notification
+        this.showToast(notification as Notification);
       }
-    });
-  }
-
-  /**
-   * Initialize SignalR connection for real-time notifications
-   */
-  private async initializeSignalR(): Promise<void> {
-    const token = this.authService.getToken();
-    if (!token) return;
-
-    this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl(`${environment.apiUrl}/hubs/document-processing`, {
-        accessTokenFactory: () => token
-      })
-      .withAutomaticReconnect()
-      .build();
-
-    // Listen for notification events
-    this.hubConnection.on('Notification', (notification: Notification) => {
-      console.log('Received notification:', notification);
-      this.notifications.update(current => [notification, ...current]);
-      this.unreadCount.update(count => count + 1);
-
-      // Show toast notification
-      this.showToast(notification);
-    });
-
-    try {
-      await this.hubConnection.start();
-      this.isConnected.set(true);
-      console.log('SignalR connected for notifications');
-    } catch (err) {
-      console.error('SignalR connection error:', err);
-      this.isConnected.set(false);
-    }
-  }
-
-  /**
-   * Disconnect SignalR connection
-   */
-  private async disconnectSignalR(): Promise<void> {
-    if (this.hubConnection) {
-      await this.hubConnection.stop();
-      this.isConnected.set(false);
-      this.notifications.set([]);
-      this.unreadCount.set(0);
-    }
+    }, { allowSignalWrites: true });
   }
 
   /**
