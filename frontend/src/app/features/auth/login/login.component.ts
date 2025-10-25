@@ -74,6 +74,12 @@ import { AuthService } from '../../../core/services/auth.service';
                 />
                 <hlm-error>Password is required</hlm-error>
               </hlm-form-field>
+
+              <div class="text-right">
+                <a routerLink="/forgot-password" class="text-sm text-primary hover:underline">
+                  Forgot password?
+                </a>
+              </div>
             } @else {
               <hlm-form-field>
                 <label hlmLabel for="twoFactorCode">Two-Factor Authentication Code</label>
@@ -138,29 +144,33 @@ export class LoginComponent {
   onSubmit() {
     this.error.set('');
     this.success.set('');
-    this.loading.set(true);
 
-    const { ...value } = this.form.value;
+    // Wrap in setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+    setTimeout(() => {
+      this.loading.set(true);
 
-    this.authService.login({
-      email: value.email || '',
-      password: value.password || '',
-      twoFactorCode: value.twoFactorCode
-    }).subscribe({
-      next: (response) => {
-        this.loading.set(false);
-        if (response.twoFactorRequired) {
-          this.twoFactorRequired.set(true);
-          this.success.set('Please enter your two-factor authentication code');
-        } else {
-          this.success.set('Login successful!');
-          setTimeout(() => this.router.navigate(['/dashboard']), 500);
+      const { ...value } = this.form.value;
+
+      this.authService.login({
+        email: value.email || '',
+        password: value.password || '',
+        twoFactorCode: value.twoFactorCode
+      }).subscribe({
+        next: (response) => {
+          this.loading.set(false);
+          if (response.twoFactorRequired) {
+            this.twoFactorRequired.set(true);
+            this.success.set('Please enter your two-factor authentication code');
+          } else {
+            this.success.set('Login successful!');
+            setTimeout(() => this.router.navigate(['/dashboard']), 500);
+          }
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.error.set(err.error?.error || 'Login failed. Please try again.');
         }
-      },
-      error: (err) => {
-        this.loading.set(false);
-        this.error.set(err.error?.error || 'Login failed. Please try again.');
-      }
+      });
     });
   }
 }

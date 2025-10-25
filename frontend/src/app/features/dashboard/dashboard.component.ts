@@ -1,7 +1,7 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Subscription } from 'rxjs';
 import { DashboardService, DashboardMetrics } from '../../core/services/dashboard.service';
 import { SignalRService } from '../../core/services/signalr.service';
 import { HlmCardImports } from '@spartan-ng/helm/card';
@@ -46,21 +46,16 @@ export type ChartOptions = {
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnDestroy {
   private dashboardService = inject(DashboardService);
   private signalRService = inject(SignalRService);
+  private subscriptions = new Subscription();
 
   // State signals
   metrics = signal<DashboardMetrics | null>(null);
-  loading = signal(true);
+  loading = signal(false); // ✅ Fixed: Initialize to false, not true!
   trendChartOptions = signal<ChartOptions | null>(null);
   statusChartOptions = signal<ChartOptions | null>(null);
-
-  // SignalR dashboard updates converted to signal
-  private dashboardUpdate = toSignal(
-    this.signalRService.dashboardUpdate$,
-    { initialValue: null }
-  );
 
   // Computed signals for component inputs
   processingActivityData = computed<ProcessingActivityData | null>(() => {
@@ -96,19 +91,30 @@ export class DashboardComponent {
   });
 
   constructor() {
-    // Effect to reload metrics when dashboard update event received
-    effect(() => {
-      const update = this.dashboardUpdate();
-      if (update) {
+    // Subscribe to dashboard update events using direct subscription (not toSignal + effect)
+    // This is the correct pattern for discrete events
+    this.subscriptions.add(
+      this.signalRService.dashboardUpdate$.subscribe(() => {
+        console.log('Dashboard update event received - reloading metrics');
         this.loadMetrics();
-      }
-    }, { allowSignalWrites: true });
+      })
+    );
 
     // Initial load
     this.loadMetrics();
   }
 
+  ngOnDestroy() {
+    this.subscriptions.unsubscribe();
+  }
+
   private loadMetrics() {
+    // Don't start a new load if already loading
+    if (this.loading()) {
+      console.log('Dashboard load already in progress - skipping');
+      return;
+    }
+
     this.loading.set(true);
     this.dashboardService.getDashboardMetrics().subscribe({
       next: (data) => {
@@ -116,7 +122,8 @@ export class DashboardComponent {
         this.initializeCharts(data);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err) => {
+        console.error('Failed to load dashboard metrics:', err);
         this.loading.set(false);
       }
     });

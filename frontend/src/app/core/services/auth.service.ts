@@ -31,6 +31,45 @@ export class AuthService {
 
   isAuthenticated = signal<boolean>(this.hasToken());
   currentUser = signal<{ email: string; subscriptionTier: number } | null>(null);
+  private profileLoaded = false;
+
+  constructor() {
+    // User profile loading is handled by APP_INITIALIZER in main.ts
+    // This ensures it runs AFTER all services are initialized (no circular dependency)
+    // This is the proper Angular pattern - clean and reactive!
+  }
+
+  /**
+   * Load current user data from the backend
+   */
+  async loadCurrentUser(): Promise<void> {
+    // Prevent multiple simultaneous loads
+    if (this.profileLoaded) {
+      return;
+    }
+    this.profileLoaded = true;
+
+    try {
+      const profile = await this.http.get<any>(`${environment.apiUrl}/user/profile`).toPromise();
+      if (profile) {
+        this.currentUser.set({
+          email: profile.email,
+          subscriptionTier: this.mapSubscriptionTier(profile.subscriptionTier)
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to load user profile:', error);
+      this.profileLoaded = false; // Allow retry on error
+
+      // Don't logout on profile load failure - token might still be valid
+      // Only logout if it's a 401 Unauthorized (token actually expired/invalid)
+      if (error.status === 401) {
+        console.log('Token invalid - logging out');
+        this.logout();
+      }
+      // For other errors (network, 500, etc), keep user logged in
+    }
+  }
 
   login(request: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${environment.apiUrl}/auth/login`, request)
@@ -56,10 +95,24 @@ export class AuthService {
     localStorage.removeItem(this.TOKEN_KEY);
     this.isAuthenticated.set(false);
     this.currentUser.set(null);
+    this.profileLoaded = false; // Reset so profile can be loaded on next login
   }
 
   getToken(): string | null {
     return localStorage.getItem(this.TOKEN_KEY);
+  }
+
+  setTokenFromRefresh(token: string): void {
+    this.setToken(token);
+    this.isAuthenticated.set(true);
+  }
+
+  refreshToken(): Observable<{ token: string }> {
+    return this.http.post<{ token: string }>(
+      `${environment.apiUrl}/auth/refresh`,
+      {},
+      { withCredentials: true } // Include httpOnly cookie
+    );
   }
 
   private setToken(token: string): void {
@@ -89,5 +142,39 @@ export class AuthService {
       `${environment.apiUrl}/auth/2fa/disable`,
       { password }
     );
+  }
+
+  forgotPassword(email: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${environment.apiUrl}/auth/forgot-password`,
+      { email }
+    ).toPromise() as Promise<{ message: string }>;
+  }
+
+  resetPassword(token: string, newPassword: string, confirmPassword: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${environment.apiUrl}/auth/reset-password`,
+      { token, newPassword, confirmPassword }
+    ).toPromise() as Promise<{ message: string }>;
+  }
+
+  changePassword(currentPassword: string, newPassword: string, confirmPassword: string): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${environment.apiUrl}/auth/change-password`,
+      { currentPassword, newPassword, confirmPassword }
+    ).toPromise() as Promise<{ message: string }>;
+  }
+
+  /**
+   * Map subscription tier string to number
+   */
+  private mapSubscriptionTier(tier: string): number {
+    const tierMap: Record<string, number> = {
+      'Free': 0,
+      'Starter': 1,
+      'Growth': 2,
+      'Pro': 3
+    };
+    return tierMap[tier] || 0;
   }
 }

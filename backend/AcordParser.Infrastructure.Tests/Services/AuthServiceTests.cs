@@ -1,5 +1,7 @@
 using AcordParser.Core.DTOs;
 using AcordParser.Core.Entities;
+using AcordParser.Core.Interfaces;
+using AcordParser.Infrastructure.Data;
 using AcordParser.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -12,6 +14,8 @@ public class AuthServiceTests
 {
     private readonly Mock<UserManager<User>> _userManagerMock;
     private readonly Mock<IConfiguration> _configurationMock;
+    private readonly Mock<ApplicationDbContext> _contextMock;
+    private readonly Mock<IEmailService> _emailMock;
     private readonly AuthService _authService;
 
     public AuthServiceTests()
@@ -27,7 +31,10 @@ public class AuthServiceTests
         _configurationMock.Setup(c => c["Jwt:Issuer"]).Returns("AcordParserTest");
         _configurationMock.Setup(c => c["Jwt:Audience"]).Returns("AcordParserAPITest");
 
-        _authService = new AuthService(_userManagerMock.Object, _configurationMock.Object);
+        _contextMock = new Mock<ApplicationDbContext>();
+        _emailMock = new Mock<IEmailService>();
+
+        _authService = new AuthService(_userManagerMock.Object, _configurationMock.Object, _contextMock.Object, _emailMock.Object);
     }
 
     #region RegisterAsync Tests
@@ -491,7 +498,7 @@ public class AuthServiceTests
         // Arrange
         var configMock = new Mock<IConfiguration>();
         configMock.Setup(c => c["Jwt:Key"]).Returns((string?)null);
-        var authService = new AuthService(_userManagerMock.Object, configMock.Object);
+        var authService = new AuthService(_userManagerMock.Object, configMock.Object, _contextMock.Object, _emailMock.Object);
 
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() =>
