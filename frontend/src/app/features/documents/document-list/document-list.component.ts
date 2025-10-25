@@ -58,6 +58,7 @@ export class DocumentListComponent {
   selectedDocuments = signal<Set<string>>(new Set());
   selectAllChecked = signal(false);
   loading = signal(false);
+  isLoadingDebounce = signal(false);
 
   // New: Panel states
   isAdvancedFiltersOpen = signal(false);
@@ -70,6 +71,9 @@ export class DocumentListComponent {
     minFieldCount: undefined,
     maxFieldCount: undefined
   });
+
+  // Track processed events to prevent duplicates
+  private processedCompleteEvents = new Set<string>();
 
   // Search debounce subject
   private searchSubject = new Subject<string>();
@@ -166,6 +170,24 @@ export class DocumentListComponent {
     effect(() => {
       const complete = this.processingComplete();
       if (complete) {
+        // Create unique key for this event
+        const eventKey = `${complete.documentId}-${complete.timestamp}`;
+
+        // Skip if we've already processed this event
+        if (this.processedCompleteEvents.has(eventKey)) {
+          return;
+        }
+
+        // Mark as processed
+        this.processedCompleteEvents.add(eventKey);
+
+        // Clean up old events (keep only last 100)
+        if (this.processedCompleteEvents.size > 100) {
+          const values = Array.from(this.processedCompleteEvents);
+          this.processedCompleteEvents.clear();
+          values.slice(-50).forEach(v => this.processedCompleteEvents.add(v));
+        }
+
         // Remove from progress tracking
         this.processingProgressMap.update(map => {
           const { [complete.documentId]: removed, ...remaining } = map;
@@ -179,8 +201,8 @@ export class DocumentListComponent {
           this.toastService.error('Document processing failed', 'Please try uploading again');
         }
 
-        // Reload documents
-        this.triggerLoad();
+        // Reload documents with debounce protection
+        this.triggerLoadWithDebounce();
       }
     }, { allowSignalWrites: true });
 
@@ -193,7 +215,28 @@ export class DocumentListComponent {
     this.loadDocuments();
   }
 
+  private triggerLoadWithDebounce() {
+    // Prevent rapid-fire loads
+    if (this.isLoadingDebounce()) {
+      console.log('Load debounced - skipping');
+      return;
+    }
+
+    this.isLoadingDebounce.set(true);
+    setTimeout(() => {
+      this.isLoadingDebounce.set(false);
+    }, 1000); // 1 second debounce
+
+    this.triggerLoad();
+  }
+
   private loadDocuments() {
+    // Prevent loading if already loading
+    if (this.loading()) {
+      console.log('Already loading - skipping duplicate request');
+      return;
+    }
+
     this.loading.set(true);
     this.documentService.getDocumentsPaginated(this.paginationRequest()).subscribe({
       next: (response) => {

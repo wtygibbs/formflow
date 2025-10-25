@@ -56,6 +56,9 @@ export class DashboardComponent {
   trendChartOptions = signal<ChartOptions | null>(null);
   statusChartOptions = signal<ChartOptions | null>(null);
 
+  // Track processed dashboard updates to prevent duplicates
+  private lastDashboardUpdateTime = 0;
+
   // SignalR dashboard updates converted to signal
   private dashboardUpdate = toSignal(
     this.signalRService.dashboardUpdate$,
@@ -100,6 +103,15 @@ export class DashboardComponent {
     effect(() => {
       const update = this.dashboardUpdate();
       if (update) {
+        const updateTime = new Date(update.timestamp).getTime();
+
+        // Debounce: Skip if we received an update in the last 2 seconds
+        if (updateTime - this.lastDashboardUpdateTime < 2000) {
+          console.log('Dashboard update debounced - skipping');
+          return;
+        }
+
+        this.lastDashboardUpdateTime = updateTime;
         this.loadMetrics();
       }
     }, { allowSignalWrites: true });
@@ -109,6 +121,12 @@ export class DashboardComponent {
   }
 
   private loadMetrics() {
+    // Prevent loading if already loading
+    if (this.loading()) {
+      console.log('Dashboard already loading - skipping duplicate request');
+      return;
+    }
+
     this.loading.set(true);
     this.dashboardService.getDashboardMetrics().subscribe({
       next: (data) => {
