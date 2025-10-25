@@ -1,12 +1,11 @@
-import { Component, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, inject, signal, viewChild, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmPaginationImports } from '@spartan-ng/helm/pagination';
-import { debounceTime, Subject } from 'rxjs';
+import { debounceTime, Subject, Subscription } from 'rxjs';
 import { DocumentService, PaginationRequest } from '../../../core/services/document.service';
 import { SignalRService } from '../../../core/services/signalr.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -37,10 +36,11 @@ import { DocumentPreviewPanelComponent } from '../document-preview-panel/documen
   templateUrl: './document-list.component.html',
   styleUrls: ['./document-list.component.css']
 })
-export class DocumentListComponent {
+export class DocumentListComponent implements OnDestroy {
   private documentService = inject(DocumentService);
   private toastService = inject(ToastService);
   private signalRService = inject(SignalRService);
+  private subscriptions = new Subscription();
 
   // View references
   uploadZone = viewChild(DocumentUploadZoneComponent);
@@ -58,9 +58,8 @@ export class DocumentListComponent {
   selectedDocuments = signal<Set<string>>(new Set());
   selectAllChecked = signal(false);
   loading = signal(false);
-  isLoadingDebounce = signal(false);
 
-  // New: Panel states
+  // Panel states
   isAdvancedFiltersOpen = signal(false);
   isPreviewPanelOpen = signal(false);
   previewDocumentId = signal<string>('');
@@ -72,15 +71,9 @@ export class DocumentListComponent {
     maxFieldCount: undefined
   });
 
-  // Track processed events to prevent duplicates
-  private processedCompleteEvents = new Set<string>();
-
   // Search debounce subject
   private searchSubject = new Subject<string>();
-  private debouncedSearch = toSignal(
-    this.searchSubject.pipe(debounceTime(300)),
-    { initialValue: '' }
-  );
+  private searchSubscription?: Subscription;
 
   // Computed signal for pagination request
   private paginationRequest = computed<PaginationRequest>(() => {
@@ -119,25 +112,11 @@ export class DocumentListComponent {
     };
   });
 
-  // Load trigger signal
-  private loadTrigger = signal(0);
-
-  // Data signals (manual loading for better control)
+  // Data signals
   documents = signal<any[]>([]);
   paginationData = signal<any>(null);
 
-  // SignalR signals using toSignal
-  processingProgress = toSignal(
-    this.signalRService.processingProgress$,
-    { initialValue: null }
-  );
-
-  processingComplete = toSignal(
-    this.signalRService.processingComplete$,
-    { initialValue: null }
-  );
-
-  // Processing progress map
+  // Processing progress map (tracks progress for each document being processed)
   processingProgressMap = signal<Record<string, any>>({});
 
   // Computed signals
@@ -146,47 +125,30 @@ export class DocumentListComponent {
   Math = Math; // Expose Math for template
 
   constructor() {
-    // Effect to handle debounced search
-    effect(() => {
-      const search = this.debouncedSearch();
-      if (search !== this.searchQuery()) {
+    // Subscribe to debounced search using direct subscription
+    this.searchSubscription = this.searchSubject
+      .pipe(debounceTime(300))
+      .subscribe((searchValue) => {
+        this.searchQuery.set(searchValue);
         this.currentPage.set(1);
-        this.triggerLoad();
-      }
-    }, { allowSignalWrites: true });
+        this.loadDocuments();
+      });
 
-    // Effect to handle processing progress updates
-    effect(() => {
-      const progress = this.processingProgress();
-      if (progress) {
+    // Subscribe to processing progress events
+    this.subscriptions.add(
+      this.signalRService.processingProgress$.subscribe((progress) => {
+        console.log('Processing progress:', progress);
         this.processingProgressMap.update(map => ({
           ...map,
           [progress.documentId]: progress
         }));
-      }
-    }, { allowSignalWrites: true });
+      })
+    );
 
-    // Effect to handle processing complete
-    effect(() => {
-      const complete = this.processingComplete();
-      if (complete) {
-        // Create unique key for this event
-        const eventKey = `${complete.documentId}-${complete.timestamp}`;
-
-        // Skip if we've already processed this event
-        if (this.processedCompleteEvents.has(eventKey)) {
-          return;
-        }
-
-        // Mark as processed
-        this.processedCompleteEvents.add(eventKey);
-
-        // Clean up old events (keep only last 100)
-        if (this.processedCompleteEvents.size > 100) {
-          const values = Array.from(this.processedCompleteEvents);
-          this.processedCompleteEvents.clear();
-          values.slice(-50).forEach(v => this.processedCompleteEvents.add(v));
-        }
+    // Subscribe to processing complete events
+    this.subscriptions.add(
+      this.signalRService.processingComplete$.subscribe((complete) => {
+        console.log('Processing complete:', complete);
 
         // Remove from progress tracking
         this.processingProgressMap.update(map => {
@@ -201,39 +163,24 @@ export class DocumentListComponent {
           this.toastService.error('Document processing failed', 'Please try uploading again');
         }
 
-        // Reload documents with debounce protection
-        this.triggerLoadWithDebounce();
-      }
-    }, { allowSignalWrites: true });
+        // Reload documents
+        this.loadDocuments();
+      })
+    );
 
     // Initial load
     this.loadDocuments();
   }
 
-  private triggerLoad() {
-    this.loadTrigger.update(v => v + 1);
-    this.loadDocuments();
-  }
-
-  private triggerLoadWithDebounce() {
-    // Prevent rapid-fire loads
-    if (this.isLoadingDebounce()) {
-      console.log('Load debounced - skipping');
-      return;
-    }
-
-    this.isLoadingDebounce.set(true);
-    setTimeout(() => {
-      this.isLoadingDebounce.set(false);
-    }, 1000); // 1 second debounce
-
-    this.triggerLoad();
+  ngOnDestroy() {
+    this.subscriptions.unsubscribe();
+    this.searchSubscription?.unsubscribe();
   }
 
   private loadDocuments() {
-    // Prevent loading if already loading
+    // Skip if already loading to prevent duplicate requests
     if (this.loading()) {
-      console.log('Already loading - skipping duplicate request');
+      console.log('Load already in progress - skipping');
       return;
     }
 
@@ -245,6 +192,7 @@ export class DocumentListComponent {
         this.loading.set(false);
       },
       error: (err) => {
+        console.error('Failed to load documents:', err);
         this.loading.set(false);
         this.toastService.error('Failed to load documents', err.error?.error || err.message);
       }
@@ -253,18 +201,18 @@ export class DocumentListComponent {
 
   // Filter event handlers
   onSearchChange(value: string) {
-    this.searchQuery.set(value);
+    // Use debounced search
     this.searchSubject.next(value);
   }
 
   onFilterChange() {
     this.currentPage.set(1);
-    this.triggerLoad();
+    this.loadDocuments();
   }
 
   onPageSizeChange() {
     this.currentPage.set(1);
-    this.triggerLoad();
+    this.loadDocuments();
   }
 
   onClearFilters() {
@@ -273,7 +221,7 @@ export class DocumentListComponent {
     this.sortBy.set('UploadedAt');
     this.sortOrder.set('desc');
     this.currentPage.set(1);
-    this.triggerLoad();
+    this.loadDocuments();
   }
 
   // Upload event handlers
@@ -317,7 +265,7 @@ export class DocumentListComponent {
   private finishMultiUpload(uploaded: number, failed: number, zone: DocumentUploadZoneComponent) {
     zone.setUploading(false);
     zone.clearQueue();
-    this.triggerLoad();
+    this.loadDocuments();
 
     if (failed === 0) {
       this.toastService.success(
@@ -378,7 +326,7 @@ export class DocumentListComponent {
 
     this.toastService.info('Deleting documents...', `Removing ${selected.length} document(s)`);
     this.selectedDocuments.set(new Set());
-    this.triggerLoad();
+    this.loadDocuments();
   }
 
   bulkExport() {
@@ -408,7 +356,7 @@ export class DocumentListComponent {
   // Pagination
   goToPage(page: number) {
     this.currentPage.set(page);
-    this.triggerLoad();
+    this.loadDocuments();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -460,7 +408,7 @@ export class DocumentListComponent {
   applyAdvancedFilters(filters: AdvancedFilters) {
     this.advancedFilters.set(filters);
     this.currentPage.set(1);
-    this.triggerLoad();
+    this.loadDocuments();
     this.toastService.success('Filters applied', 'Document list updated');
   }
 
