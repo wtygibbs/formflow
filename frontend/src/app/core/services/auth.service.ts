@@ -31,11 +31,14 @@ export class AuthService {
 
   isAuthenticated = signal<boolean>(this.hasToken());
   currentUser = signal<{ email: string; subscriptionTier: number } | null>(null);
+  private profileLoaded = false;
 
   constructor() {
-    // Load user data if token exists
+    // DON'T call loadCurrentUser() here - it creates circular dependency with auth interceptor!
+    // The interceptor injects AuthService, so AuthService can't make HTTP calls in constructor
+    // Instead, call it after a delay to let all services initialize first
     if (this.hasToken()) {
-      this.loadCurrentUser();
+      setTimeout(() => this.loadCurrentUser(), 100);
     }
   }
 
@@ -43,6 +46,12 @@ export class AuthService {
    * Load current user data from the backend
    */
   async loadCurrentUser(): Promise<void> {
+    // Prevent multiple simultaneous loads
+    if (this.profileLoaded) {
+      return;
+    }
+    this.profileLoaded = true;
+
     try {
       const profile = await this.http.get<any>(`${environment.apiUrl}/user/profile`).toPromise();
       if (profile) {
@@ -53,6 +62,8 @@ export class AuthService {
       }
     } catch (error: any) {
       console.error('Failed to load user profile:', error);
+      this.profileLoaded = false; // Allow retry on error
+
       // Don't logout on profile load failure - token might still be valid
       // Only logout if it's a 401 Unauthorized (token actually expired/invalid)
       if (error.status === 401) {
@@ -87,6 +98,7 @@ export class AuthService {
     localStorage.removeItem(this.TOKEN_KEY);
     this.isAuthenticated.set(false);
     this.currentUser.set(null);
+    this.profileLoaded = false; // Reset so profile can be loaded on next login
   }
 
   getToken(): string | null {
