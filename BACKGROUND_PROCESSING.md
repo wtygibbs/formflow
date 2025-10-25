@@ -93,13 +93,14 @@ var options = new BoundedChannelOptions(capacity)
 {
     FullMode = BoundedChannelFullMode.Wait
 };
-_queue = Channel.CreateBounded<Func<CancellationToken, ValueTask>>(options);
+_queue = Channel.CreateBounded<Guid>(options);
 ```
 
 **Key Features:**
 - Bounded capacity prevents runaway memory usage
 - `BoundedChannelFullMode.Wait` blocks enqueue when full (backpressure)
 - Async-friendly API (`WriteAsync`, `ReadAsync`)
+- Queues document IDs (not closures) to avoid scoping issues
 
 ### DocumentProcessingService
 
@@ -110,7 +111,7 @@ public class DocumentProcessingService : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Continuous loop: dequeue → process → repeat
+        // Continuous loop: dequeue → create scope → resolve services → process → repeat
     }
 }
 ```
@@ -118,8 +119,21 @@ public class DocumentProcessingService : BackgroundService
 **Key Features:**
 - Runs continuously in the background
 - Uses `SemaphoreSlim` to limit concurrency
+- Creates a new DI scope for each task to get fresh scoped services (DbContext, etc.)
 - Automatically started/stopped with the application
 - Gracefully handles cancellation during shutdown
+
+**Important - EF Core Scoping:**
+The service creates a new scope for each document:
+
+```csharp
+using var scope = _serviceProvider.CreateScope();
+var documentService = scope.ServiceProvider.GetRequiredService<IDocumentService>();
+await documentService.ProcessDocumentAsync(documentId);
+```
+
+This ensures each background task gets its own `ApplicationDbContext` instance, avoiding the common error:
+> Cannot access a disposed context instance. A common cause of this error is disposing a context instance that was resolved from dependency injection...
 
 ### Concurrency Control
 
@@ -278,6 +292,28 @@ await _backgroundTaskQueue.QueueBackgroundWorkItemAsync(async token =>
 - User experience: Instant feedback, progress via SignalR
 
 ## Troubleshooting
+
+### DbContext Disposed Error
+
+**Symptom:** `System.ObjectDisposedException: Cannot access a disposed context instance`
+**Cause:** Background task trying to use a scoped DbContext from an ended HTTP request
+**Solution:** ✅ Already fixed! The implementation creates a new scope for each task:
+
+```csharp
+// ❌ WRONG - Captures scoped DbContext in closure
+await _queue.QueueBackgroundWorkItemAsync(async token =>
+{
+    await this.ProcessDocumentAsync(documentId);  // 'this' has disposed DbContext
+});
+
+// ✅ CORRECT - Queue just the ID, create scope in background service
+await _queue.QueueDocumentAsync(documentId);
+
+// In background service:
+using var scope = _serviceProvider.CreateScope();
+var documentService = scope.ServiceProvider.GetRequiredService<IDocumentService>();
+await documentService.ProcessDocumentAsync(documentId);
+```
 
 ### Queue Full (BoundedChannelFullMode.Wait)
 

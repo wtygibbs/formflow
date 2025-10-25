@@ -1,4 +1,5 @@
 using AcordParser.Core.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -10,15 +11,18 @@ namespace AcordParser.Infrastructure.Services;
 public class DocumentProcessingService : BackgroundService
 {
     private readonly IBackgroundTaskQueue _taskQueue;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<DocumentProcessingService> _logger;
     private readonly int _maxConcurrency;
 
     public DocumentProcessingService(
         IBackgroundTaskQueue taskQueue,
+        IServiceProvider serviceProvider,
         ILogger<DocumentProcessingService> logger,
         int maxConcurrency = 3)
     {
         _taskQueue = taskQueue;
+        _serviceProvider = serviceProvider;
         _logger = logger;
         _maxConcurrency = maxConcurrency;
     }
@@ -42,21 +46,30 @@ public class DocumentProcessingService : BackgroundService
 
                 try
                 {
-                    // Dequeue work item
-                    var workItem = await _taskQueue.DequeueAsync(stoppingToken);
+                    // Dequeue document ID
+                    var documentId = await _taskQueue.DequeueAsync(stoppingToken);
 
-                    _logger.LogInformation("Dequeued a document processing task. Queue size: {QueueSize}", _taskQueue.Count);
+                    _logger.LogInformation(
+                        "Dequeued document {DocumentId} for processing. Queue size: {QueueSize}",
+                        documentId,
+                        _taskQueue.Count);
 
                     // Process in background and release semaphore when done
                     var task = Task.Run(async () =>
                     {
                         try
                         {
-                            await workItem(stoppingToken);
+                            // Create a new scope for this task to get fresh scoped services
+                            using var scope = _serviceProvider.CreateScope();
+                            var documentService = scope.ServiceProvider.GetRequiredService<IDocumentService>();
+
+                            _logger.LogInformation("Processing document {DocumentId}", documentId);
+                            await documentService.ProcessDocumentAsync(documentId);
+                            _logger.LogInformation("Successfully processed document {DocumentId}", documentId);
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error occurred processing document");
+                            _logger.LogError(ex, "Error occurred processing document {DocumentId}", documentId);
                         }
                         finally
                         {
@@ -76,7 +89,7 @@ public class DocumentProcessingService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error dequeuing work item");
+                    _logger.LogError(ex, "Error dequeuing document");
                     semaphore.Release(); // Release if we failed to dequeue
                 }
             }

@@ -8,33 +8,33 @@ namespace AcordParser.Infrastructure.Services;
 /// </summary>
 public class BackgroundTaskQueue : IBackgroundTaskQueue
 {
-    private readonly Channel<Func<CancellationToken, ValueTask>> _queue;
+    private readonly Channel<Guid> _queue;
 
     public BackgroundTaskQueue(int capacity = 100)
     {
         // Create a bounded channel with capacity limit
-        // BoundedChannelFullMode.Wait will cause QueueBackgroundWorkItemAsync to wait when queue is full
+        // BoundedChannelFullMode.Wait will cause QueueDocumentAsync to wait when queue is full
         var options = new BoundedChannelOptions(capacity)
         {
             FullMode = BoundedChannelFullMode.Wait
         };
-        _queue = Channel.CreateBounded<Func<CancellationToken, ValueTask>>(options);
+        _queue = Channel.CreateBounded<Guid>(options);
     }
 
-    public async ValueTask QueueBackgroundWorkItemAsync(Func<CancellationToken, ValueTask> workItem)
+    public async ValueTask QueueDocumentAsync(Guid documentId)
     {
-        if (workItem == null)
+        if (documentId == Guid.Empty)
         {
-            throw new ArgumentNullException(nameof(workItem));
+            throw new ArgumentException("Document ID cannot be empty", nameof(documentId));
         }
 
-        await _queue.Writer.WriteAsync(workItem);
+        await _queue.Writer.WriteAsync(documentId);
     }
 
-    public async ValueTask<Func<CancellationToken, ValueTask>> DequeueAsync(CancellationToken cancellationToken)
+    public async ValueTask<Guid> DequeueAsync(CancellationToken cancellationToken)
     {
-        var workItem = await _queue.Reader.ReadAsync(cancellationToken);
-        return workItem;
+        var documentId = await _queue.Reader.ReadAsync(cancellationToken);
+        return documentId;
     }
 
     public int Count => _queue.Reader.Count;
