@@ -1,26 +1,26 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { map, switchMap } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { DocumentService, DocumentDetail, ExtractedField } from '../../../core/services/document.service';
-import { ToastService } from '../../../core/services/toast.service';
-import { SignalRService } from '../../../core/services/signalr.service';
-import { HlmCardImports } from '@spartan-ng/helm/card';
-import { HlmButtonImports } from '@spartan-ng/helm/button';
-import { HlmBadgeImports } from '@spartan-ng/helm/badge';
-import { HlmAlertImports } from '@spartan-ng/helm/alert';
-import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
-import { HlmInputImports } from '@spartan-ng/helm/input';
-import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
-import { HlmSelectImports } from '@spartan-ng/helm/select';
-import { HlmIconImports } from '@spartan-ng/helm/icon';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { provideIcons } from '@ng-icons/core';
-import { lucideSearch, lucideFilter, lucideChevronDown, lucideChevronUp, lucideDownload, lucideUndo2, lucideCheckCircle2 } from '@ng-icons/lucide';
-import { ExtractedFieldItemComponent } from '../extracted-field-item/extracted-field-item.component';
+import { lucideCheckCircle2, lucideChevronDown, lucideChevronUp, lucideDownload, lucideFilter, lucideSearch, lucideUndo2 } from '@ng-icons/lucide';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
+import { HlmBadgeImports } from '@spartan-ng/helm/badge';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
+import { HlmIconImports } from '@spartan-ng/helm/icon';
+import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmSelectImports } from '@spartan-ng/helm/select';
+import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
+import { map, switchMap } from 'rxjs';
+import { DocumentService, ExtractedField } from '../../../core/services/document.service';
+import { SignalRService } from '../../../core/services/signalr.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { DocumentProcessingStatusComponent } from '../document-processing-status/document-processing-status.component';
+import { ExtractedFieldItemComponent } from '../extracted-field-item/extracted-field-item.component';
 
 interface FieldGroup {
   category: string;
@@ -134,13 +134,28 @@ export class DocumentDetailComponent {
   groupByCategory = signal(true);
   collapsedGroups = signal<Set<string>>(new Set());
 
-  // Sanitized file URL for iframe
-  safeFileUrl = computed(() => {
+  fileType = computed(() => {
     const doc = this.document();
-    if (doc?.fileUrl) {
-      return this.sanitizer.bypassSecurityTrustResourceUrl(doc.fileUrl);
-    }
+    if (!doc) return null;
+
+    const extension = doc.fileName.toLowerCase().split('.').pop();
+    if (extension === 'pdf') return 'pdf';
+    if (['png', 'jpg', 'jpeg', 'tiff', 'tif'].includes(extension || '')) return 'image';
     return null;
+  });
+
+  filePreviewUrl = computed(() => {
+    const doc = this.document();
+    // FileUrl now contains a SAS URL from the backend
+    return doc?.fileUrl || null;
+  });
+
+  // Sanitized file URL for iframe
+  safeFileUrl = computed<SafeResourceUrl | null>(() => {
+    const url = this.filePreviewUrl();
+    if (!url) return null;
+    // Sanitize the URL for use in iframe (needed for PDFs)
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
   });
 
   // Filtered and sorted fields

@@ -101,7 +101,7 @@ builder.Services.AddHostedService(sp =>
 {
     var queue = sp.GetRequiredService<IBackgroundTaskQueue>();
     var logger = sp.GetRequiredService<ILogger<AcordParser.Infrastructure.Services.DocumentProcessingService>>();
-    return new DocumentProcessingService(queue, logger, maxConcurrency);
+    return new DocumentProcessingService(queue, sp, logger, maxConcurrency);
 });
 
 // Add SignalR
