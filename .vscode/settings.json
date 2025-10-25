@@ -61,7 +61,6 @@
   },
   "omnisharp.enableRoslynAnalyzers": true,
   "omnisharp.enableEditorConfigSupport": true,
-  "omnisharp.organizeImportsOnFormat": true,
   "csharp.suppressDotnetRestoreNotification": true,
   "csharp.semanticHighlighting.enabled": true,
   // ==================== TYPESCRIPT / ANGULAR SETTINGS ====================
@@ -120,9 +119,6 @@
   "explorer.sortOrder": "type",
   "explorer.confirmDelete": false,
   "explorer.confirmDragAndDrop": false,
-  // ==================== CODE LENS ====================
-  "csharp.referencesCodeLens.enabled": true,
-  "csharp.testsCodeLens.enabled": true,
   // ==================== WORKSPACE RECOMMENDATIONS ====================
   "extensions.ignoreRecommendations": false,
   // ==================== TASK SETTINGS ====================
@@ -150,5 +146,8 @@
   "tailwindCSS.classFunctions": [
     "hlm",
     "cva"
-  ]
+  ],
+  "dotnet.codeLens.enableReferencesCodeLens": true,
+  "dotnet.codeLens.enableTestsCodeLens": true,
+  "dotnet.formatting.organizeImportsOnFormat": true
 }

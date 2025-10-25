@@ -344,13 +344,14 @@ public class DocumentService : IDocumentService
             await SendProgressAsync(document.UserId, documentId, document.FileName, 10, "Downloading document...", 0, 0);
 
             // Download document from blob storage
+            Dictionary<string, (string Value, float Confidence)> extractedData;
             await using (var documentStream = await _blobStorage.DownloadFileAsync(document.BlobStorageUrl))
             {
                 // Step 2: Analyzing (20-60%)
                 await SendProgressAsync(document.UserId, documentId, document.FileName, 30, "Analyzing document with AI...", 0, 0);
 
                 // Analyze with Azure Document Intelligence
-                var extractedData = await _documentIntelligence.AnalyzeAcord125Async(documentStream, document.FileName);
+                extractedData = await _documentIntelligence.AnalyzeAcord125Async(documentStream, document.FileName);
 
                 // Step 3: Extracting fields (60-90%)
                 var totalFields = extractedData.Count;
