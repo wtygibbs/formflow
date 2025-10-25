@@ -32,6 +32,32 @@ export class AuthService {
   isAuthenticated = signal<boolean>(this.hasToken());
   currentUser = signal<{ email: string; subscriptionTier: number } | null>(null);
 
+  constructor() {
+    // Load user data if token exists
+    if (this.hasToken()) {
+      this.loadCurrentUser();
+    }
+  }
+
+  /**
+   * Load current user data from the backend
+   */
+  async loadCurrentUser(): Promise<void> {
+    try {
+      const profile = await this.http.get<any>(`${environment.apiUrl}/user/profile`).toPromise();
+      if (profile) {
+        this.currentUser.set({
+          email: profile.email,
+          subscriptionTier: this.mapSubscriptionTier(profile.subscriptionTier)
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+      // If profile load fails (e.g., token expired), clear auth state
+      this.logout();
+    }
+  }
+
   login(request: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${environment.apiUrl}/auth/login`, request)
       .pipe(
@@ -123,5 +149,18 @@ export class AuthService {
       `${environment.apiUrl}/auth/change-password`,
       { currentPassword, newPassword, confirmPassword }
     ).toPromise() as Promise<{ message: string }>;
+  }
+
+  /**
+   * Map subscription tier string to number
+   */
+  private mapSubscriptionTier(tier: string): number {
+    const tierMap: Record<string, number> = {
+      'Free': 0,
+      'Starter': 1,
+      'Growth': 2,
+      'Pro': 3
+    };
+    return tierMap[tier] || 0;
   }
 }
