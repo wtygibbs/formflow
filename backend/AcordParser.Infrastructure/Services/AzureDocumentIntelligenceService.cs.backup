@@ -22,11 +22,11 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
         _client = new DocumentAnalysisClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
     }
 
-    public async Task<Dictionary<string, (string Value, float Confidence, string? BoundingRegions, int? PageNumber)>> AnalyzeAcord125Async(
+    public async Task<Dictionary<string, (string Value, float Confidence)>> AnalyzeAcord125Async(
         Stream documentStream,
         string fileName)
     {
-        var results = new Dictionary<string, (string Value, float Confidence, string? BoundingRegions, int? PageNumber)>();
+        var results = new Dictionary<string, (string Value, float Confidence)>();
 
         try
         {
@@ -57,25 +57,9 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
                             string value = ExtractFieldValue(fieldValue);
                             float confidence = fieldValue.Confidence ?? 0f;
 
-                            // Extract bounding box information
-                            string? boundingRegions = null;
-                            int? pageNumber = null;
-
-                            if (fieldValue.BoundingRegions != null && fieldValue.BoundingRegions.Count > 0)
-                            {
-                                var regions = fieldValue.BoundingRegions.Select(region => new
-                                {
-                                    page = region.PageNumber,
-                                    polygon = region.BoundingPolygon.Select(p => new { x = p.X, y = p.Y }).ToList()
-                                }).ToList();
-
-                                boundingRegions = System.Text.Json.JsonSerializer.Serialize(regions);
-                                pageNumber = fieldValue.BoundingRegions.First().PageNumber;
-                            }
-
                             if (!string.IsNullOrWhiteSpace(value))
                             {
-                                results[fieldName] = (value, confidence, boundingRegions, pageNumber);
+                                results[fieldName] = (value, confidence);
                             }
                         }
                     }
@@ -116,7 +100,7 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
         };
     }
 
-    private void ExtractFromKeyValuePairs(AnalyzeResult result, Dictionary<string, (string Value, float Confidence, string? BoundingRegions, int? PageNumber)> results)
+    private void ExtractFromKeyValuePairs(AnalyzeResult result, Dictionary<string, (string Value, float Confidence)> results)
     {
         // Extract key-value pairs (for prebuilt models)
         foreach (var kvp in result.KeyValuePairs)
@@ -127,31 +111,15 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
                 var value = kvp.Value.Content.Trim();
                 var confidence = kvp.Confidence;
 
-                // Extract bounding regions from value
-                string? boundingRegions = null;
-                int? pageNumber = null;
-
-                if (kvp.Value.BoundingRegions != null && kvp.Value.BoundingRegions.Count > 0)
-                {
-                    var regions = kvp.Value.BoundingRegions.Select(region => new
-                    {
-                        page = region.PageNumber,
-                        polygon = region.BoundingPolygon.Select(p => new { x = p.X, y = p.Y }).ToList()
-                    }).ToList();
-
-                    boundingRegions = System.Text.Json.JsonSerializer.Serialize(regions);
-                    pageNumber = kvp.Value.BoundingRegions.First().PageNumber;
-                }
-
                 if (!results.ContainsKey(key))
                 {
-                    results[key] = (value, confidence, boundingRegions, pageNumber);
+                    results[key] = (value, confidence);
                 }
             }
         }
     }
 
-    private void ExtractFromTables(AnalyzeResult result, Dictionary<string, (string Value, float Confidence, string? BoundingRegions, int? PageNumber)> results)
+    private void ExtractFromTables(AnalyzeResult result, Dictionary<string, (string Value, float Confidence)> results)
     {
         // Extract tables (for prebuilt models)
         foreach (var table in result.Tables)
@@ -168,28 +136,12 @@ public class AzureDocumentIntelligenceService : IAzureDocumentIntelligenceServic
                     if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
                     {
                         // Use average confidence from cells
-                        var avgConfidence = rowCells.Average(c => c.BoundingRegions.Count > 0 ? 0.8f : 0.5f);
-                        var tableKey = $"Table_{table.BoundingRegions.FirstOrDefault()?.PageNumber ?? 1}_{key}";
-
-                        // Get bounding regions from first cell
-                        string? boundingRegions = null;
-                        int? pageNumber = null;
-
-                        if (rowCells[0].BoundingRegions != null && rowCells[0].BoundingRegions.Count > 0)
-                        {
-                            var regions = rowCells[0].BoundingRegions.Select(region => new
-                            {
-                                page = region.PageNumber,
-                                polygon = region.BoundingPolygon.Select(p => new { x = p.X, y = p.Y }).ToList()
-                            }).ToList();
-
-                            boundingRegions = System.Text.Json.JsonSerializer.Serialize(regions);
-                            pageNumber = rowCells[0].BoundingRegions.First().PageNumber;
-                        }
+                        var avgConfidence = rowCells.Average(c => c.BoundingRegions.FirstOrDefault().BoundingPolygon.Count > 0 ? 0.8f : 0.5f);
+                        var tableKey = $"Table_{table.BoundingRegions.FirstOrDefault().PageNumber}_{key}";
 
                         if (!results.ContainsKey(tableKey))
                         {
-                            results[tableKey] = (value, avgConfidence, boundingRegions, pageNumber);
+                            results[tableKey] = (value, avgConfidence);
                         }
                     }
                 }
