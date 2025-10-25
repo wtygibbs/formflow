@@ -91,6 +91,19 @@ builder.Services.AddScoped<IAzureDocumentIntelligenceService, AzureDocumentIntel
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<INotificationService, AcordParser.API.Services.SignalRNotificationService>();
 
+// Register background task queue (singleton - shared across the app)
+var queueCapacity = builder.Configuration.GetValue<int>("BackgroundProcessing:QueueCapacity", 100);
+builder.Services.AddSingleton<IBackgroundTaskQueue>(sp => new AcordParser.Infrastructure.Services.BackgroundTaskQueue(queueCapacity));
+
+// Register background processing service
+var maxConcurrency = builder.Configuration.GetValue<int>("BackgroundProcessing:MaxConcurrency", 3);
+builder.Services.AddHostedService(sp =>
+{
+    var queue = sp.GetRequiredService<IBackgroundTaskQueue>();
+    var logger = sp.GetRequiredService<ILogger<AcordParser.Infrastructure.Services.DocumentProcessingService>>();
+    return new AcordParser.Infrastructure.Services.DocumentProcessingService(queue, logger, maxConcurrency);
+});
+
 // Add SignalR
 builder.Services.AddSignalR();
 

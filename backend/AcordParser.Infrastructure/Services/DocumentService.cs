@@ -16,6 +16,7 @@ public class DocumentService : IDocumentService
     private readonly IAzureDocumentIntelligenceService _documentIntelligence;
     private readonly ISubscriptionService _subscriptionService;
     private readonly INotificationService? _notificationService;
+    private readonly IBackgroundTaskQueue? _backgroundTaskQueue;
 
     private static readonly string[] AllowedExtensions = { ".pdf", ".png", ".jpg", ".jpeg", ".tiff" };
     private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
@@ -25,13 +26,15 @@ public class DocumentService : IDocumentService
         IBlobStorageService blobStorage,
         IAzureDocumentIntelligenceService documentIntelligence,
         ISubscriptionService subscriptionService,
-        INotificationService? notificationService = null)
+        INotificationService? notificationService = null,
+        IBackgroundTaskQueue? backgroundTaskQueue = null)
     {
         _context = context;
         _blobStorage = blobStorage;
         _documentIntelligence = documentIntelligence;
         _subscriptionService = subscriptionService;
         _notificationService = notificationService;
+        _backgroundTaskQueue = backgroundTaskQueue;
     }
 
     public async Task<UploadDocumentResponse> UploadDocumentAsync(string userId, IFormFile file)
@@ -82,9 +85,19 @@ public class DocumentService : IDocumentService
         _context.Documents.Add(document);
         await _context.SaveChangesAsync();
 
-        // Process document asynchronously (in background)
-        await ProcessDocumentAsync(document.Id);
-        //_ = Task.Run(() => ProcessDocumentAsync(document.Id));
+        // Enqueue document for background processing
+        if (_backgroundTaskQueue != null)
+        {
+            await _backgroundTaskQueue.QueueBackgroundWorkItemAsync(async token =>
+            {
+                await ProcessDocumentAsync(document.Id);
+            });
+        }
+        else
+        {
+            // Fallback: Process synchronously if queue is not available (e.g., in tests)
+            await ProcessDocumentAsync(document.Id);
+        }
 
         return new UploadDocumentResponse(document.Id, document.FileName, document.Status);
     }
