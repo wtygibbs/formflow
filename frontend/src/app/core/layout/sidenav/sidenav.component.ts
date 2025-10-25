@@ -1,8 +1,8 @@
-import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { LayoutService } from '../../services/layout.service';
 import { AuthService } from '../../services/auth.service';
+import { LayoutService } from '../../services/layout.service';
 
 export interface NavItem {
   label: string;
@@ -57,7 +57,7 @@ export interface NavItem {
                 [routerLink]="item.route"
                 routerLinkActive="bg-primary text-primary-foreground"
                 [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
-                class="flex items-center rounded-lg hover:bg-accent transition-colors group relative overflow-hidden"
+                class="flex items-center rounded-md hover:bg-accent transition-colors group relative overflow-hidden p-2 text-left"
                 [class.gap-3]="layoutService.isExpanded()"
                 [class.px-3]="layoutService.isExpanded()"
                 [class.py-2.5]="layoutService.isExpanded()"
