@@ -535,6 +535,136 @@ app.MapPut("/api/user/preferences", async (UpdatePreferencesRequest request, App
 .WithName("UpdateUserPreferences")
 .WithTags("User");
 
+// ==================== NOTIFICATION ENDPOINTS ====================
+
+app.MapGet("/api/notifications", async (ApplicationDbContext context, ClaimsPrincipal user, int limit = 50) =>
+{
+    var userId = GetUserId(user);
+
+    var notifications = await context.Notifications
+        .Where(n => n.UserId == userId)
+        .OrderByDescending(n => n.CreatedAt)
+        .Take(limit)
+        .Select(n => new NotificationResponse(
+            n.Id,
+            n.Title,
+            n.Message,
+            n.Type.ToString(),
+            n.IsRead,
+            n.CreatedAt,
+            n.ReadAt,
+            n.RelatedEntityId,
+            n.ActionUrl
+        ))
+        .ToListAsync();
+
+    return Results.Ok(notifications);
+})
+.RequireAuthorization()
+.WithName("GetNotifications")
+.WithTags("Notifications");
+
+app.MapGet("/api/notifications/unread-count", async (ApplicationDbContext context, ClaimsPrincipal user) =>
+{
+    var userId = GetUserId(user);
+
+    var unreadCount = await context.Notifications
+        .Where(n => n.UserId == userId && !n.IsRead)
+        .CountAsync();
+
+    return Results.Ok(new { unreadCount });
+})
+.RequireAuthorization()
+.WithName("GetUnreadCount")
+.WithTags("Notifications");
+
+app.MapPost("/api/notifications/{notificationId}/read", async (Guid notificationId, ApplicationDbContext context, ClaimsPrincipal user) =>
+{
+    var userId = GetUserId(user);
+
+    var notification = await context.Notifications
+        .Where(n => n.Id == notificationId && n.UserId == userId)
+        .FirstOrDefaultAsync();
+
+    if (notification == null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!notification.IsRead)
+    {
+        notification.IsRead = true;
+        notification.ReadAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+    }
+
+    return Results.Ok(new { message = "Notification marked as read" });
+})
+.RequireAuthorization()
+.WithName("MarkNotificationRead")
+.WithTags("Notifications");
+
+app.MapPost("/api/notifications/mark-all-read", async (ApplicationDbContext context, ClaimsPrincipal user) =>
+{
+    var userId = GetUserId(user);
+
+    var unreadNotifications = await context.Notifications
+        .Where(n => n.UserId == userId && !n.IsRead)
+        .ToListAsync();
+
+    foreach (var notification in unreadNotifications)
+    {
+        notification.IsRead = true;
+        notification.ReadAt = DateTime.UtcNow;
+    }
+
+    await context.SaveChangesAsync();
+
+    return Results.Ok(new { message = $"{unreadNotifications.Count} notifications marked as read" });
+})
+.RequireAuthorization()
+.WithName("MarkAllNotificationsRead")
+.WithTags("Notifications");
+
+app.MapDelete("/api/notifications/{notificationId}", async (Guid notificationId, ApplicationDbContext context, ClaimsPrincipal user) =>
+{
+    var userId = GetUserId(user);
+
+    var notification = await context.Notifications
+        .Where(n => n.Id == notificationId && n.UserId == userId)
+        .FirstOrDefaultAsync();
+
+    if (notification == null)
+    {
+        return Results.NotFound();
+    }
+
+    context.Notifications.Remove(notification);
+    await context.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Notification deleted" });
+})
+.RequireAuthorization()
+.WithName("DeleteNotification")
+.WithTags("Notifications");
+
+app.MapDelete("/api/notifications/clear-all", async (ApplicationDbContext context, ClaimsPrincipal user) =>
+{
+    var userId = GetUserId(user);
+
+    var notifications = await context.Notifications
+        .Where(n => n.UserId == userId)
+        .ToListAsync();
+
+    context.Notifications.RemoveRange(notifications);
+    await context.SaveChangesAsync();
+
+    return Results.Ok(new { message = $"{notifications.Count} notifications deleted" });
+})
+.RequireAuthorization()
+.WithName("ClearAllNotifications")
+.WithTags("Notifications");
+
 // ==================== DOCUMENT ENDPOINTS ====================
 
 app.MapPost("/api/documents/upload", async (HttpRequest request, IDocumentService documentService, ClaimsPrincipal user) =>

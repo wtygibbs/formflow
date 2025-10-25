@@ -390,6 +390,17 @@ public class DocumentService : IDocumentService
             {
                 await _notificationService.SendProcessingCompleteAsync(document.UserId, documentId, true);
                 await _notificationService.SendDashboardUpdateAsync(document.UserId);
+
+                // Send persistent notification
+                var processingTime = (DateTime.UtcNow - startTime).TotalSeconds;
+                await _notificationService.SendNotificationAsync(
+                    document.UserId,
+                    "Document Processing Complete",
+                    $"Successfully processed '{document.FileName}' with {extractedData.Count} fields extracted in {processingTime:F1} seconds.",
+                    NotificationType.Success,
+                    documentId.ToString(),
+                    $"/documents/{documentId}"
+                );
             }
         }
         catch (Exception ex)
@@ -402,6 +413,16 @@ public class DocumentService : IDocumentService
             {
                 await _notificationService.SendProcessingCompleteAsync(document.UserId, documentId, false);
                 await _notificationService.SendDashboardUpdateAsync(document.UserId);
+
+                // Send persistent notification about the failure
+                await _notificationService.SendNotificationAsync(
+                    document.UserId,
+                    "Document Processing Failed",
+                    $"Failed to process '{document.FileName}'. Error: {ex.Message}",
+                    NotificationType.Error,
+                    documentId.ToString(),
+                    $"/documents/{documentId}"
+                );
             }
         }
     }
