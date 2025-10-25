@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-6" (mousemove)="onMouseMove($event)" (mouseup)="onMouseUp()">
   @if (loading()) {
     <!-- Skeleton Loading State -->
     <div>
@@ -70,9 +70,17 @@
               }
             </div>
           </div>
-          <button hlmBtn size="sm" (click)="exportCsv()" [disabled]="doc.status !== 2">
-            Export CSV
-          </button>
+          <div class="flex gap-2 flex-wrap">
+            <button hlmBtn size="sm" variant="outline" (click)="toggleViewMode()">
+              {{ viewMode() === 'split' ? 'Fields Only' : 'Show Preview' }}
+            </button>
+            <button hlmBtn size="sm" variant="outline" (click)="exportJson()" [disabled]="doc.status !== 2">
+              Export JSON
+            </button>
+            <button hlmBtn size="sm" (click)="exportCsv()" [disabled]="doc.status !== 2">
+              Export CSV
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -91,7 +99,48 @@
       <app-document-processing-status [progress]="processingProgress()" />
     }
 
-    <!-- Extracted Fields -->
+    <!-- Confidence Insights -->
+    @if (doc.extractedFields.length > 0 && doc.status === 2) {
+      <div hlmCard>
+        <div hlmCardContent>
+          <h3 class="text-sm font-medium mb-3">Confidence Insights</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="space-y-1">
+              <div class="text-xs text-muted-foreground">Average</div>
+              <div class="text-2xl font-semibold">{{confidenceInsights().average}}%</div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs text-muted-foreground flex items-center gap-1">
+                <div class="w-2 h-2 rounded-full bg-green-600"></div>
+                High (>80%)
+              </div>
+              <div class="text-2xl font-semibold">{{confidenceInsights().high}}</div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs text-muted-foreground flex items-center gap-1">
+                <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                Medium (60-80%)
+              </div>
+              <div class="text-2xl font-semibold">{{confidenceInsights().medium}}</div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs text-muted-foreground flex items-center gap-1">
+                <div class="w-2 h-2 rounded-full bg-red-600"></div>
+                Low (<60%)
+              </div>
+              <div class="text-2xl font-semibold">{{confidenceInsights().low}}</div>
+            </div>
+          </div>
+          @if (confidenceInsights().low > 0) {
+            <div class="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-sm text-yellow-800 dark:text-yellow-200">
+              ⚠️ {{confidenceInsights().low}} field(s) have low confidence and may need review
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Split View / Fields Only View -->
     @if (doc.extractedFields.length === 0) {
       <div hlmCard>
         <div hlmCardContent class="flex flex-col items-center text-center py-12">
@@ -99,41 +148,391 @@
         </div>
       </div>
     } @else {
-      <div hlmCard>
-        <div hlmCardContent>
-          <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
-            <h2 class="text-lg font-semibold">Extracted Fields ({{ doc.extractedFields.length }})</h2>
-            <div class="flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <div class="flex items-center gap-1.5">
-                <div class="w-2 h-2 rounded-full bg-green-600"></div>
-                <span>High (>80%)</span>
+      @if (viewMode() === 'split' && safeFileUrl()) {
+        <!-- Split View Layout -->
+        <div class="split-container relative flex gap-2" style="height: calc(100vh - 300px); min-height: 600px;">
+          <!-- Document Preview Panel -->
+          <div class="overflow-hidden rounded-lg border bg-card" [style.width.%]="splitPosition()">
+            <div class="h-full flex flex-col">
+              <div class="p-3 border-b bg-muted/50">
+                <h3 class="text-sm font-medium">Document Preview</h3>
               </div>
-              <div class="flex items-center gap-1.5">
-                <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
-                <span>Medium (60-80%)</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <div class="w-2 h-2 rounded-full bg-red-600"></div>
-                <span>Low (<60%)</span>
+              <div class="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900">
+                @if (doc.fileUrl?.toLowerCase().endsWith('.pdf')) {
+                  <iframe [src]="safeFileUrl()" class="w-full h-full" frameborder="0"></iframe>
+                } @else {
+                  <div class="flex items-center justify-center h-full p-4">
+                    <img [src]="doc.fileUrl" alt="Document" class="max-w-full max-h-full object-contain" />
+                  </div>
+                }
               </div>
             </div>
           </div>
 
-          <div class="border rounded-lg overflow-hidden">
-            @for (field of doc.extractedFields; track field.id) {
-              <app-extracted-field-item
-                [field]="field"
-                [isEditing]="editingField() === field.id"
-                (editRequested)="onEditRequested($event)"
-                (saveRequested)="onSaveField($event)"
-                (cancelRequested)="onCancelEdit()"
-                (verifyRequested)="onVerifyField($event)"
-                (copyRequested)="onCopyToClipboard($event)"
-              />
-            }
+          <!-- Resizer Handle -->
+          <div
+            class="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors"
+            (mousedown)="onMouseDown($event)"
+          ></div>
+
+          <!-- Fields Panel -->
+          <div class="flex-1 overflow-hidden rounded-lg border bg-card" [style.width.%]="100 - splitPosition()">
+            <div class="h-full flex flex-col">
+              <div class="p-3 border-b bg-muted/50 space-y-3">
+                <!-- Search and Filters -->
+                <div class="flex gap-2 flex-wrap">
+                  <div class="relative flex-1 min-w-[200px]">
+                    <input
+                      hlmInput
+                      type="text"
+                      placeholder="Search fields..."
+                      [ngModel]="searchQuery()"
+                      (ngModelChange)="onSearchChange($event)"
+                      class="pl-9"
+                    />
+                    <hlm-icon name="lucideSearch" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <button hlmBtn variant="outline" size="sm" (click)="clearFilters()">
+                    Clear Filters
+                  </button>
+                </div>
+
+                <!-- Filter Options -->
+                <div class="flex gap-2 flex-wrap text-sm">
+                  <select
+                    hlmInput
+                    [ngModel]="confidenceFilter()"
+                    (ngModelChange)="onConfidenceFilterChange($event)"
+                    class="text-sm py-1 px-2 h-8"
+                  >
+                    <option value="all">All Confidence</option>
+                    <option value="high">High (>80%)</option>
+                    <option value="medium">Medium (60-80%)</option>
+                    <option value="low">Low (<60%)</option>
+                  </select>
+
+                  <select
+                    hlmInput
+                    [ngModel]="verificationFilter()"
+                    (ngModelChange)="onVerificationFilterChange($event)"
+                    class="text-sm py-1 px-2 h-8"
+                  >
+                    <option value="all">All Fields</option>
+                    <option value="verified">Verified</option>
+                    <option value="unverified">Unverified</option>
+                  </select>
+
+                  <select
+                    hlmInput
+                    [ngModel]="editedFilter()"
+                    (ngModelChange)="onEditedFilterChange($event)"
+                    class="text-sm py-1 px-2 h-8"
+                  >
+                    <option value="all">All Edits</option>
+                    <option value="edited">Edited</option>
+                    <option value="original">Original</option>
+                  </select>
+
+                  <button
+                    hlmBtn
+                    variant="outline"
+                    size="sm"
+                    (click)="toggleGroupByCategory()"
+                    class="text-xs"
+                  >
+                    {{ groupByCategory() ? 'Ungroup' : 'Group by Category' }}
+                  </button>
+                </div>
+
+                <!-- Bulk Actions -->
+                @if (selectedFields().size > 0) {
+                  <div class="flex gap-2 items-center p-2 bg-primary/10 rounded-md">
+                    <span class="text-sm font-medium">{{selectedFields().size}} selected</span>
+                    <button hlmBtn size="sm" variant="default" (click)="bulkVerifySelected()">
+                      <hlm-icon name="lucideCheckCircle2" class="w-4 h-4 mr-1" />
+                      Verify Selected
+                    </button>
+                    <button hlmBtn size="sm" variant="outline" (click)="exportSelectedFields()">
+                      <hlm-icon name="lucideDownload" class="w-4 h-4 mr-1" />
+                      Export Selected
+                    </button>
+                    <button hlmBtn size="sm" variant="ghost" (click)="selectedFields().clear(); selectAllChecked.set(false)">
+                      Clear
+                    </button>
+                  </div>
+                } @else {
+                  <div class="flex gap-2">
+                    <button hlmBtn size="sm" variant="outline" (click)="bulkVerifyHighConfidence()">
+                      Verify All High Confidence
+                    </button>
+                  </div>
+                }
+              </div>
+
+              <!-- Fields List -->
+              <div class="flex-1 overflow-auto p-4">
+                <div class="space-y-2">
+                  <!-- Select All -->
+                  <div class="flex items-center gap-2 pb-2 border-b">
+                    <input
+                      type="checkbox"
+                      [checked]="selectAllChecked()"
+                      (change)="toggleSelectAll()"
+                      class="w-4 h-4"
+                    />
+                    <span class="text-sm font-medium">
+                      {{ filteredFields().length }} field(s) found
+                    </span>
+                  </div>
+
+                  <!-- Grouped Fields -->
+                  @for (group of groupedFields(); track group.category) {
+                    <div class="space-y-2">
+                      @if (groupByCategory()) {
+                        <button
+                          class="flex items-center gap-2 w-full text-left p-2 hover:bg-muted/50 rounded transition-colors"
+                          (click)="toggleGroupCollapse(group.category)"
+                        >
+                          <hlm-icon
+                            [name]="group.collapsed ? 'lucideChevronDown' : 'lucideChevronUp'"
+                            class="w-4 h-4"
+                          />
+                          <span class="font-medium text-sm">{{ group.category }}</span>
+                          <span class="text-xs text-muted-foreground">({{ group.fields.length }})</span>
+                        </button>
+                      }
+
+                      @if (!group.collapsed) {
+                        <div class="space-y-1 border rounded-lg overflow-hidden">
+                          @for (field of group.fields; track field.id) {
+                            <div class="flex items-start gap-2 border-b last:border-b-0 p-2 hover:bg-muted/30 transition-colors">
+                              <input
+                                type="checkbox"
+                                [checked]="isFieldSelected(field.id)"
+                                (change)="toggleFieldSelection(field.id)"
+                                class="w-4 h-4 mt-1 flex-shrink-0"
+                              />
+                              <div class="flex-1 min-w-0">
+                                <app-extracted-field-item
+                                  [field]="field"
+                                  [isEditing]="editingField() === field.id"
+                                  (editRequested)="onEditRequested($event)"
+                                  (saveRequested)="onSaveField($event)"
+                                  (cancelRequested)="onCancelEdit()"
+                                  (verifyRequested)="onVerifyField($event)"
+                                  (copyRequested)="onCopyToClipboard($event)"
+                                />
+                                @if (field.editedValue) {
+                                  <button
+                                    hlmBtn
+                                    variant="ghost"
+                                    size="sm"
+                                    class="mt-1 text-xs"
+                                    (click)="onRevertField(field)"
+                                  >
+                                    <hlm-icon name="lucideUndo2" class="w-3 h-3 mr-1" />
+                                    Revert to Original
+                                  </button>
+                                }
+                              </div>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  @if (filteredFields().length === 0) {
+                    <div class="text-center py-8 text-muted-foreground">
+                      <p>No fields match your filters</p>
+                      <button hlmBtn variant="link" size="sm" (click)="clearFilters()">
+                        Clear filters
+                      </button>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      } @else {
+        <!-- Fields Only View (original layout, enhanced) -->
+        <div hlmCard>
+          <div hlmCardContent>
+            <!-- Search and Filters Header -->
+            <div class="space-y-3 mb-4">
+              <div class="flex gap-2 flex-wrap">
+                <div class="relative flex-1 min-w-[200px]">
+                  <input
+                    hlmInput
+                    type="text"
+                    placeholder="Search fields..."
+                    [ngModel]="searchQuery()"
+                    (ngModelChange)="onSearchChange($event)"
+                    class="pl-9"
+                  />
+                  <hlm-icon name="lucideSearch" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                </div>
+                <button hlmBtn variant="outline" size="sm" (click)="clearFilters()">
+                  Clear Filters
+                </button>
+              </div>
+
+              <!-- Filter Options -->
+              <div class="flex gap-2 flex-wrap text-sm">
+                <select
+                  hlmInput
+                  [ngModel]="confidenceFilter()"
+                  (ngModelChange)="onConfidenceFilterChange($event)"
+                  class="text-sm py-1 px-2 h-8"
+                >
+                  <option value="all">All Confidence</option>
+                  <option value="high">High (>80%)</option>
+                  <option value="medium">Medium (60-80%)</option>
+                  <option value="low">Low (<60%)</option>
+                </select>
+
+                <select
+                  hlmInput
+                  [ngModel]="verificationFilter()"
+                  (ngModelChange)="onVerificationFilterChange($event)"
+                  class="text-sm py-1 px-2 h-8"
+                >
+                  <option value="all">All Fields</option>
+                  <option value="verified">Verified</option>
+                  <option value="unverified">Unverified</option>
+                </select>
+
+                <select
+                  hlmInput
+                  [ngModel]="editedFilter()"
+                  (ngModelChange)="onEditedFilterChange($event)"
+                  class="text-sm py-1 px-2 h-8"
+                >
+                  <option value="all">All Edits</option>
+                  <option value="edited">Edited</option>
+                  <option value="original">Original</option>
+                </select>
+
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  (click)="toggleGroupByCategory()"
+                  class="text-xs"
+                >
+                  {{ groupByCategory() ? 'Ungroup' : 'Group by Category' }}
+                </button>
+              </div>
+
+              <!-- Bulk Actions -->
+              @if (selectedFields().size > 0) {
+                <div class="flex gap-2 items-center p-2 bg-primary/10 rounded-md">
+                  <span class="text-sm font-medium">{{selectedFields().size}} selected</span>
+                  <button hlmBtn size="sm" variant="default" (click)="bulkVerifySelected()">
+                    <hlm-icon name="lucideCheckCircle2" class="w-4 h-4 mr-1" />
+                    Verify Selected
+                  </button>
+                  <button hlmBtn size="sm" variant="outline" (click)="exportSelectedFields()">
+                    <hlm-icon name="lucideDownload" class="w-4 h-4 mr-1" />
+                    Export Selected
+                  </button>
+                  <button hlmBtn size="sm" variant="ghost" (click)="selectedFields().clear(); selectAllChecked.set(false)">
+                    Clear
+                  </button>
+                </div>
+              } @else {
+                <div class="flex gap-2">
+                  <button hlmBtn size="sm" variant="outline" (click)="bulkVerifyHighConfidence()">
+                    Verify All High Confidence
+                  </button>
+                </div>
+              }
+            </div>
+
+            <!-- Select All -->
+            <div class="flex items-center gap-2 pb-3 border-b mb-3">
+              <input
+                type="checkbox"
+                [checked]="selectAllChecked()"
+                (change)="toggleSelectAll()"
+                class="w-4 h-4"
+              />
+              <span class="text-sm font-medium">
+                {{ filteredFields().length }} field(s) found
+              </span>
+            </div>
+
+            <!-- Grouped Fields -->
+            <div class="space-y-4">
+              @for (group of groupedFields(); track group.category) {
+                <div class="space-y-2">
+                  @if (groupByCategory()) {
+                    <button
+                      class="flex items-center gap-2 w-full text-left p-2 hover:bg-muted/50 rounded transition-colors"
+                      (click)="toggleGroupCollapse(group.category)"
+                    >
+                      <hlm-icon
+                        [name]="group.collapsed ? 'lucideChevronDown' : 'lucideChevronUp'"
+                        class="w-4 h-4"
+                      />
+                      <span class="font-medium">{{ group.category }}</span>
+                      <span class="text-xs text-muted-foreground">({{ group.fields.length }})</span>
+                    </button>
+                  }
+
+                  @if (!group.collapsed) {
+                    <div class="border rounded-lg overflow-hidden">
+                      @for (field of group.fields; track field.id) {
+                        <div class="flex items-start gap-2 border-b last:border-b-0 p-2 hover:bg-muted/30 transition-colors">
+                          <input
+                            type="checkbox"
+                            [checked]="isFieldSelected(field.id)"
+                            (change)="toggleFieldSelection(field.id)"
+                            class="w-4 h-4 mt-1 flex-shrink-0"
+                          />
+                          <div class="flex-1 min-w-0">
+                            <app-extracted-field-item
+                              [field]="field"
+                              [isEditing]="editingField() === field.id"
+                              (editRequested)="onEditRequested($event)"
+                              (saveRequested)="onSaveField($event)"
+                              (cancelRequested)="onCancelEdit()"
+                              (verifyRequested)="onVerifyField($event)"
+                              (copyRequested)="onCopyToClipboard($event)"
+                            />
+                            @if (field.editedValue) {
+                              <button
+                                hlmBtn
+                                variant="ghost"
+                                size="sm"
+                                class="mt-1 text-xs"
+                                (click)="onRevertField(field)"
+                              >
+                                <hlm-icon name="lucideUndo2" class="w-3 h-3 mr-1" />
+                                Revert to Original
+                              </button>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+
+              @if (filteredFields().length === 0) {
+                <div class="text-center py-8 text-muted-foreground">
+                  <p>No fields match your filters</p>
+                  <button hlmBtn variant="link" size="sm" (click)="clearFilters()">
+                    Clear filters
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
     }
   }
 </div>

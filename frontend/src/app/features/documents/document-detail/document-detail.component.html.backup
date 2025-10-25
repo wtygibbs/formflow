@@ -1,0 +1,139 @@
+<div class="space-y-6">
+  @if (loading()) {
+    <!-- Skeleton Loading State -->
+    <div>
+      <hlm-skeleton class="h-4 w-32 mb-4" />
+    </div>
+    <div hlmCard>
+      <div hlmCardContent class="space-y-4">
+        <div class="flex justify-between items-start">
+          <div class="flex-1 space-y-3">
+            <hlm-skeleton class="h-8 w-3/4" />
+            <div class="flex gap-4">
+              <hlm-skeleton class="h-5 w-24" />
+              <hlm-skeleton class="h-5 w-32" />
+              <hlm-skeleton class="h-5 w-28" />
+            </div>
+          </div>
+          <hlm-skeleton class="h-9 w-28" />
+        </div>
+      </div>
+    </div>
+    <div hlmCard>
+      <div hlmCardContent class="space-y-4">
+        @for (i of [1,2,3,4,5]; track i) {
+          <div class="space-y-2 border-b pb-4">
+            <hlm-skeleton class="h-5 w-48" />
+            <hlm-skeleton class="h-6 w-full" />
+            <div class="flex gap-2">
+              <hlm-skeleton class="h-4 w-20" />
+              <hlm-skeleton class="h-4 w-16" />
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  } @else if (document(); as doc) {
+    <!-- Header -->
+    <div>
+      <a routerLink="/documents" class="text-sm text-primary hover:underline">
+        ← Back to Documents
+      </a>
+    </div>
+
+    <div hlmCard>
+      <div hlmCardContent>
+        <div class="flex justify-between items-start gap-4 flex-wrap">
+          <div class="flex-1">
+            <h1 class="text-2xl font-semibold mb-3">{{ doc.fileName }}</h1>
+            <div class="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <div class="flex items-center gap-2">
+                <span class="font-medium">Status:</span>
+                @switch (doc.status) {
+                  @case (0) {
+                    <span hlmBadge variant="secondary">Uploaded</span>
+                  }
+                  @case (1) {
+                    <span hlmBadge variant="outline" class="border-yellow-500 text-yellow-600">Processing</span>
+                  }
+                  @case (2) {
+                    <span hlmBadge class="bg-green-600 text-white">Completed</span>
+                  }
+                  @case (3) {
+                    <span hlmBadge variant="destructive">Failed</span>
+                  }
+                }
+              </div>
+              <span>Uploaded: {{ formatDate(doc.uploadedAt) }}</span>
+              @if (doc.processedAt) {
+                <span>Processed: {{ formatDate(doc.processedAt) }}</span>
+              }
+            </div>
+          </div>
+          <button hlmBtn size="sm" (click)="exportCsv()" [disabled]="doc.status !== 2">
+            Export CSV
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    @if (doc.processingError) {
+      <div hlmAlert variant="destructive">
+        <p hlmAlertDescription>
+          <strong>Processing Error:</strong> {{ doc.processingError }}
+        </p>
+      </div>
+    }
+
+    <!-- Processing Status -->
+    @if (doc.status === 1) {
+      <app-document-processing-status [progress]="processingProgress()" />
+    }
+
+    <!-- Extracted Fields -->
+    @if (doc.extractedFields.length === 0) {
+      <div hlmCard>
+        <div hlmCardContent class="flex flex-col items-center text-center py-12">
+          <p class="text-muted-foreground">No fields extracted yet.</p>
+        </div>
+      </div>
+    } @else {
+      <div hlmCard>
+        <div hlmCardContent>
+          <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+            <h2 class="text-lg font-semibold">Extracted Fields ({{ doc.extractedFields.length }})</h2>
+            <div class="flex flex-wrap gap-3 text-xs text-muted-foreground">
+              <div class="flex items-center gap-1.5">
+                <div class="w-2 h-2 rounded-full bg-green-600"></div>
+                <span>High (>80%)</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                <span>Medium (60-80%)</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-2 h-2 rounded-full bg-red-600"></div>
+                <span>Low (<60%)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="border rounded-lg overflow-hidden">
+            @for (field of doc.extractedFields; track field.id) {
+              <app-extracted-field-item
+                [field]="field"
+                [isEditing]="editingField() === field.id"
+                (editRequested)="onEditRequested($event)"
+                (saveRequested)="onSaveField($event)"
+                (cancelRequested)="onCancelEdit()"
+                (verifyRequested)="onVerifyField($event)"
+                (copyRequested)="onCopyToClipboard($event)"
+              />
+            }
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>
