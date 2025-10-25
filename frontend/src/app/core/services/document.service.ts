@@ -19,6 +19,8 @@ export interface ExtractedField {
   confidence: number;
   isVerified: boolean;
   editedValue?: string;
+  boundingRegions?: string;
+  pageNumber?: number;
 }
 
 export interface DocumentDetail {

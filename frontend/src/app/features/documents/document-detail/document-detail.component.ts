@@ -21,6 +21,7 @@ import { SignalRService } from '../../../core/services/signalr.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { DocumentProcessingStatusComponent } from '../document-processing-status/document-processing-status.component';
 import { ExtractedFieldItemComponent } from '../extracted-field-item/extracted-field-item.component';
+import { DocumentHighlightOverlayComponent } from '../document-highlight-overlay/document-highlight-overlay.component';
 
 interface FieldGroup {
   category: string;
@@ -37,6 +38,7 @@ interface FieldGroup {
     RouterLink,
     ExtractedFieldItemComponent,
     DocumentProcessingStatusComponent,
+    DocumentHighlightOverlayComponent,
     ...HlmCardImports,
     ...HlmButtonImports,
     ...HlmBadgeImports,
@@ -133,6 +135,10 @@ export class DocumentDetailComponent {
   // Field grouping
   groupByCategory = signal(true);
   collapsedGroups = signal<Set<string>>(new Set());
+
+  // Field highlighting
+  activeFieldForHighlight = signal<ExtractedField | null>(null);
+  private highlightTimeout: any;
 
   fileType = computed(() => {
     const doc = this.document();
@@ -545,6 +551,29 @@ export class DocumentDetailComponent {
     }).catch(() => {
       // Error already shown via toast
     });
+  }
+
+  onFieldClick(field: ExtractedField) {
+    // Clear any existing timeout
+    if (this.highlightTimeout) {
+      clearTimeout(this.highlightTimeout);
+    }
+
+    // Set the active field for highlighting
+    this.activeFieldForHighlight.set(field);
+
+    // Auto-clear after 3 seconds
+    this.highlightTimeout = setTimeout(() => {
+      this.activeFieldForHighlight.set(null);
+    }, 3000);
+
+    // If field has no bounding box, show a toast with page number
+    if (!field.boundingRegions && field.pageNumber) {
+      this.toastService.info(
+        'Field Location',
+        `${field.fieldName} is on page ${field.pageNumber}`
+      );
+    }
   }
 
   onCopyToClipboard(data: { value: string; fieldName: string }) {

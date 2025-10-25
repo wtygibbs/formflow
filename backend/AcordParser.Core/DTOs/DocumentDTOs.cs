@@ -34,7 +34,9 @@ public record ExtractedFieldDTO(
     string FieldValue,
     float Confidence,
     bool IsVerified,
-    string? EditedValue
+    string? EditedValue,
+    string? BoundingRegions,
+    int? PageNumber
 );
 
 public record UpdateFieldRequest(

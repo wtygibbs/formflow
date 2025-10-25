@@ -156,14 +156,33 @@
           <div class="p-3 border-b bg-muted/50">
             <h3 class="text-sm font-medium">Document Preview</h3>
           </div>
-          <div class="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900">
+          <div class="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 relative">
             @if (fileType() === 'pdf') {
             <!-- PDF Preview using iframe -->
-            <iframe [src]="safeFileUrl()" class="w-full border-0 h-full" title="{{ doc.fileName }}"></iframe>
+            <div class="relative w-full h-full">
+              <iframe [src]="safeFileUrl()" class="w-full border-0 h-full" title="{{ doc.fileName }}"></iframe>
+              @if (activeFieldForHighlight(); as field) {
+                @if (field.pageNumber) {
+                  <div class="absolute top-4 right-4 bg-yellow-400 text-black px-3 py-2 rounded-lg shadow-lg font-medium animate-pulse">
+                    Field on Page {{field.pageNumber}}
+                  </div>
+                }
+              }
+            </div>
             } @else if (fileType() === 'image') {
-            <!-- Image Preview -->
-            <img [src]="filePreviewUrl()" [alt]="doc.fileName" class="w-full h-auto max-h-96 object-contain"
-              (error)="$any($event.target).style.display='none'" />
+            <!-- Image Preview with Highlight Overlay -->
+            <div class="relative w-full h-full">
+              <img [src]="filePreviewUrl()" [alt]="doc.fileName" class="w-full h-auto max-h-96 object-contain"
+                (error)="$any($event.target).style.display='none'" />
+              @if (activeFieldForHighlight(); as field) {
+                <app-document-highlight-overlay
+                  [activeFieldId]="field.id"
+                  [boundingRegions]="field.boundingRegions ?? null"
+                  [pageNumber]="field.pageNumber ?? null"
+                  [currentPage]="1"
+                />
+              }
+            </div>
             } @else {
             <!-- Fallback for unknown types -->
             <div class="p-6 text-center text-muted-foreground">
@@ -279,7 +298,7 @@
                   <div class="flex items-start gap-2 border-b last:border-b-0 p-2 hover:bg-muted/30 transition-colors">
                     <input type="checkbox" [checked]="isFieldSelected(field.id)"
                       (change)="toggleFieldSelection(field.id)" class="w-4 h-4 mt-1 flex-shrink-0" />
-                    <div class="flex-1 min-w-0">
+                    <div class="flex-1 min-w-0 cursor-pointer" (click)="onFieldClick(field)">
                       <app-extracted-field-item [field]="field" [isEditing]="editingField() === field.id"
                         (editRequested)="onEditRequested($event)" (saveRequested)="onSaveField($event)"
                         (cancelRequested)="onCancelEdit()" (verifyRequested)="onVerifyField($event)"
@@ -410,7 +429,7 @@
               <div class="flex items-start gap-2 border-b last:border-b-0 p-2 hover:bg-muted/30 transition-colors">
                 <input type="checkbox" [checked]="isFieldSelected(field.id)" (change)="toggleFieldSelection(field.id)"
                   class="w-4 h-4 mt-1 flex-shrink-0" />
-                <div class="flex-1 min-w-0">
+                <div class="flex-1 min-w-0 cursor-pointer" (click)="onFieldClick(field)">
                   <app-extracted-field-item [field]="field" [isEditing]="editingField() === field.id"
                     (editRequested)="onEditRequested($event)" (saveRequested)="onSaveField($event)"
                     (cancelRequested)="onCancelEdit()" (verifyRequested)="onVerifyField($event)"

@@ -243,7 +243,9 @@ public class DocumentService : IDocumentService
                 f.FieldValue,
                 f.Confidence,
                 f.IsVerified,
-                f.EditedValue
+                f.EditedValue,
+                f.BoundingRegions,
+                f.PageNumber
             ))
             .ToList();
 
@@ -341,7 +343,7 @@ public class DocumentService : IDocumentService
             await SendProgressAsync(document.UserId, documentId, document.FileName, 10, "Downloading document...", 0, 0);
 
             // Download document from blob storage
-            Dictionary<string, (string Value, float Confidence)> extractedData;
+            Dictionary<string, (string Value, float Confidence, string? BoundingRegions, int? PageNumber)> extractedData;
             await using (var documentStream = await _blobStorage.DownloadFileAsync(document.BlobStorageUrl))
             {
                 // Step 2: Analyzing (20-60%)
@@ -366,6 +368,8 @@ public class DocumentService : IDocumentService
                         FieldName = kvp.Key,
                         FieldValue = kvp.Value.Value,
                         Confidence = kvp.Value.Confidence,
+                        BoundingRegions = kvp.Value.BoundingRegions,
+                        PageNumber = kvp.Value.PageNumber,
                         IsVerified = false,
                         ExtractedAt = DateTime.UtcNow
                     };
