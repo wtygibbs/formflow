@@ -34,12 +34,9 @@ export class AuthService {
   private profileLoaded = false;
 
   constructor() {
-    // DON'T call loadCurrentUser() here - it creates circular dependency with auth interceptor!
-    // The interceptor injects AuthService, so AuthService can't make HTTP calls in constructor
-    // Instead, call it after a delay to let all services initialize first
-    if (this.hasToken()) {
-      setTimeout(() => this.loadCurrentUser(), 100);
-    }
+    // User profile loading is handled by APP_INITIALIZER in main.ts
+    // This ensures it runs AFTER all services are initialized (no circular dependency)
+    // This is the proper Angular pattern - clean and reactive!
   }
 
   /**
